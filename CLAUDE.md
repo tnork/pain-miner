@@ -4,6 +4,8 @@ Engagement-triage queue. Surfaces practitioner pain posts on Reddit / Hacker New
 
 Extracted from the `lai-central-research-agent` monorepo on 2026-05-29 and split into this standalone repo for independent deployment and database migration.
 
+**GitHub remote:** `git@github.com:tnork/pain-miner.git` (added 2026-05-29, pushed initial commit)
+
 ---
 
 ## Repo structure
@@ -88,6 +90,21 @@ EMAIL_FROM="Pain Miner <research@mg.muisbien.com>"
 
 # Stack Exchange API key — registered at stackapps.com (10k req/day)
 STACK_EXCHANGE_KEY=
+```
+
+---
+
+## Local development
+
+```bash
+# 1. Create config.js from .env values (gitignored — do this once after cloning)
+#    Copy the three values from .env → web/config.js matching config.example.js shape.
+
+# 2. Start frontend dev server (serves web/ at http://localhost:8787)
+python3 -m http.server 8787 --directory web
+
+# Note: nginx Basic-auth gate for /config.js does not apply locally.
+# The Python server serves config.js directly — auth layer is prod-only.
 ```
 
 ---
