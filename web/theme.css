@@ -1,0 +1,204 @@
+/* ============================================================================
+   Pain Miner — shared visual system
+   Loaded by index.html, reports.html, and overview.html.
+   Page-specific styling stays inline in each page; this file only carries
+   what's used on 2+ pages: tokens, body background, topbar/brand, pills/btns,
+   surface card pattern, typography.
+   ============================================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --bg: #f4efe6;
+  --paper: rgba(255, 251, 245, 0.82);
+  --paper-strong: rgba(255, 252, 247, 0.92);
+  --ink: #1a1626;
+  --muted: #5b5868;
+  --night: #12343b;
+  --accent: #0f766e;
+  --signal: #c2410c;
+  --gold: #a16207;
+  --line: rgba(49, 38, 23, 0.14);
+  --shadow: 0 20px 60px rgba(54, 39, 24, 0.12);
+  --neon-purple: #7c3aed;
+  --neon-purple-deep: #4c1d95;
+  --neon-violet: #a855f7;
+  --neon-cyan: #06b6d4;
+  --neon-cyan-bright: #22d3ee;
+  --neon-magenta: #d946ef;
+  --deep-night: #0a0a18;
+  --indigo-night: #1a103e;
+  --content: 1240px;
+  --reddit: #ff4500;
+  --hn: #ff7b34;
+  --so: #f48024;
+  --x: #1da1f2;
+  --other: #8c8c8c;
+  --danger: #e24c57;
+  --success: #6cd391;
+  --warn: #ffb86b;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  background:
+    radial-gradient(circle at 12% 4%, rgba(124, 58, 237, 0.18), transparent 30%),
+    radial-gradient(circle at 88% 6%, rgba(6, 182, 212, 0.15), transparent 28%),
+    radial-gradient(circle at 50% 100%, rgba(217, 70, 239, 0.07), transparent 38%),
+    linear-gradient(180deg, #f7f1e6 0%, #efe6d6 50%, #ebe0d0 100%);
+  min-height: 100vh;
+}
+h1, h2, h3, h4 {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+p { margin: 0; }
+a { color: inherit; }
+.shell { width: min(var(--content), calc(100% - 32px)); margin: 0 auto; }
+
+/* ---- Topbar + brand lockup ---- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(16px);
+  background: rgba(244, 239, 230, 0.72);
+  border-bottom: 1px solid rgba(49, 38, 23, 0.08);
+}
+.topbar-inner {
+  width: min(var(--content), calc(100% - 32px));
+  margin: 0 auto;
+  padding: 10px 0 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.brand-logo {
+  width: clamp(48px, 4.8vw, 68px);
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 16px 36px rgba(124, 58, 237, 0.2)) drop-shadow(0 0 42px rgba(6, 182, 212, 0.12));
+  flex-shrink: 0;
+}
+.brand-copy strong {
+  display: block;
+  font-size: 29px;
+  line-height: 0.88;
+  letter-spacing: -0.045em;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #ff9f5d 0%, #ff8759 38%, #f06c62 72%, #ea6d77 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 10px 24px rgba(240, 108, 98, 0.14);
+}
+.brand-copy span {
+  display: block;
+  font-size: 13px;
+  margin-top: 6px;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  font-weight: 700;
+  background: linear-gradient(135deg, #3b2478 0%, #5c39bf 44%, #7d54f4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 8px 20px rgba(92, 57, 191, 0.12);
+}
+
+/* ---- Status pill (queue page right-side) + nav pills (other pages) ---- */
+/* Shared shape — but only nav-pill is nowrap. The queue page writes long
+   error/loading strings into the status pill (e.g. "load failed: ...") which
+   need to wrap on narrow viewports rather than overflow the topbar. */
+.status-pill, .nav-pill {
+  text-decoration: none;
+  padding: 9px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(49,38,23,0.08);
+  background: rgba(255,250,243,0.75);
+  color: var(--muted);
+  font-size: 12.5px;
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+.nav-pill { white-space: nowrap; }
+.status-pill {
+  white-space: normal;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.nav-pill:hover {
+  transform: translateY(-1px);
+  background: #fffdf9;
+  border-color: rgba(49,38,23,0.18);
+  color: var(--ink);
+}
+.page-nav {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: rgba(255, 251, 244, 0.96);
+  border-color: rgba(49, 38, 23, 0.16);
+}
+.page-nav:hover {
+  background: #fffcf8;
+  border-color: rgba(49, 38, 23, 0.26);
+  color: var(--ink);
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---- Pulse helper for "live" indicators ---- */
+.pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--neon-purple);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pulse::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--neon-purple);
+  box-shadow: 0 0 0 0 rgba(124,58,237,0.45);
+  animation: pulse 2.1s infinite;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(124,58,237,0.45); }
+  70%  { box-shadow: 0 0 0 14px rgba(124,58,237,0); }
+  100% { box-shadow: 0 0 0 0 rgba(124,58,237,0); }
+}
+
+/* ---- Reduced-motion respect for any animation we ship ---- */
+@media (prefers-reduced-motion: reduce) {
+  .pulse::before { animation: none; }
+}
+
+/* ---- Responsive: nav collapse on narrow screens ---- */
+@media (max-width: 680px) {
+  .topbar-inner { display: grid; gap: 10px; }
+  .nav-links { justify-content: flex-start; }
+  .status-pill { justify-self: start; }
+}

@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pain Miner — System Overview</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="stylesheet" href="theme.css" />
+<style>
+  /* Page-specific styling for the overview page.
+     Shared visual system (tokens, body bg, topbar, brand lockup, .nav-pill,
+     typography) lives in theme.css and is applied first. */
+
+  .hero { padding: 52px 0 36px; }
+  .hero-copy, .section-card, .arch-step {
+    background: var(--paper);
+    border: 1px solid rgba(49,38,23,0.08);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+  }
+  .hero-copy {
+    border-radius: 34px;
+    padding: 36px 38px;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.74);
+    border: 1px solid rgba(49,38,23,0.08);
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--signal), var(--accent));
+  }
+  .hero-copy h1 {
+    margin-top: 20px;
+    font-size: clamp(2.4rem, 4vw, 4.2rem);
+    line-height: 0.95;
+    max-width: 18ch;
+  }
+  .hero-copy p {
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: 17px;
+    line-height: 1.72;
+    max-width: 72ch;
+  }
+  .hero-metrics {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .metric {
+    padding: 18px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.68);
+    border: 1px solid rgba(49,38,23,0.08);
+  }
+  .metric strong {
+    display: block;
+    font-size: 28px;
+    font-family: "Iowan Old Style","Palatino Linotype", serif;
+  }
+  .metric span {
+    display: block;
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  section { padding-top: 56px; }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 20px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .section-head h2 {
+    font-size: clamp(2rem, 4vw, 3.3rem);
+    line-height: 0.96;
+    margin-bottom: 14px;
+  }
+  .section-head p {
+    max-width: 58ch;
+    color: var(--muted);
+    line-height: 1.7;
+    margin: 0;
+  }
+  .arch-grid, .goal-grid, .api-grid, .perf-grid, .detail-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .arch-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .goal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .api-grid, .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .api-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; display: grid; }
+  .perf-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .arch-step {
+    border-radius: 24px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .arch-step::before {
+    content: attr(data-step);
+    position: absolute;
+    right: 14px;
+    top: 10px;
+    font-family: "Iowan Old Style", "Palatino Linotype", serif;
+    font-size: 28px;
+    color: rgba(124,58,237,0.12);
+  }
+  .arch-step h3 { font-size: 19px; margin-bottom: 10px; color: var(--ink); }
+  .arch-step p { margin: 0; color: var(--muted); line-height: 1.65; font-size: 14px; }
+
+  .section-card {
+    border-radius: 24px;
+    padding: 26px;
+  }
+  .section-card small {
+    display: block;
+    margin-bottom: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+  }
+  .section-card h3 {
+    font-size: 24px;
+    line-height: 1.06;
+    margin-bottom: 14px;
+    color: var(--ink);
+  }
+  .section-card p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .api-top, .detail-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .api-provider {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 3px;
+  }
+  .role-badge, .mini-chip {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(49,38,23,0.08);
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .role-badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .footer-note {
+    padding: 28px 0 36px;
+    color: var(--muted);
+    text-align: center;
+    font-size: 12px;
+  }
+  @media (max-width: 980px) {
+    .arch-grid, .goal-grid, .perf-grid { grid-template-columns: 1fr 1fr; }
+    .api-grid, .api-grid-3, .detail-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    .arch-grid, .goal-grid, .perf-grid, .api-grid-3 { grid-template-columns: 1fr; }
+  }
+
+  /* Section anchor strip */
+  .section-anchors {
+    border-bottom: 1px solid rgba(49,38,23,0.07);
+    background: rgba(244,239,230,0.55);
+  }
+  .section-anchors-inner {
+    width: min(var(--content), calc(100% - 32px));
+    margin: 0 auto;
+    padding: 8px 0;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .section-anchors a {
+    text-decoration: none;
+    padding: 5px 11px;
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    transition: background 160ms ease, color 160ms ease;
+  }
+  .section-anchors a:hover {
+    background: rgba(255,250,243,0.85);
+    color: var(--ink);
+  }
+
+  /* Two-column hero */
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .hero-ctas {
+    margin-top: 28px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .cta-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-family: "Avenir Next", "Segoe UI", sans-serif;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .cta-btn:hover { opacity: 0.85; }
+  .cta-primary {
+    background: linear-gradient(135deg, var(--neon-purple), var(--neon-purple-deep));
+    color: #fff;
+  }
+  .cta-secondary {
+    background: rgba(255,255,255,0.74);
+    border: 1px solid rgba(49,38,23,0.10);
+    color: var(--ink);
+  }
+
+  /* Glance card */
+  .glance-card {
+    background: var(--paper);
+    border: 1px solid rgba(49,38,23,0.08);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    border-radius: 34px;
+    padding: 32px 30px;
+  }
+  .glance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+  }
+  .glance-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.74);
+    border: 1px solid rgba(49,38,23,0.08);
+    color: var(--neon-purple);
+    font-size: 11px;
+  }
+  .live-badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--neon-purple);
+  }
+  .glance-steps { display: flex; flex-direction: column; }
+  .glance-step {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(49,38,23,0.06);
+  }
+  .glance-step:last-child { border-bottom: none; }
+  .step-num {
+    font-size: 12px;
+    color: rgba(91,88,104,0.45);
+    min-width: 22px;
+    font-variant-numeric: tabular-nums;
+  }
+  .step-body { flex: 1; min-width: 0; }
+  .step-body strong {
+    display: block;
+    font-size: 14px;
+    font-family: "Avenir Next", "Segoe UI", sans-serif;
+    color: var(--ink);
+    letter-spacing: 0;
+  }
+  .step-body span {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .step-badge {
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(49,38,23,0.08);
+    color: var(--muted);
+    font-size: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  @media (max-width: 860px) {
+    .hero-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ---- Animated architecture pipeline ---- */
+  .pm-arch-pipeline { padding: 0; }
+  .pm-arch-flow-wrap {
+    border-radius: 28px;
+    background: linear-gradient(135deg, rgba(255,251,245,0.86), rgba(248,242,232,0.78));
+    border: 1px solid rgba(124,58,237,0.16);
+    box-shadow: 0 24px 60px rgba(124,58,237,0.14), inset 0 1px 0 rgba(255,255,255,0.4);
+    padding: 38px 28px 30px;
+    overflow: hidden;
+    position: relative;
+  }
+  .pm-arch-flow-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 8% 50%, rgba(124,58,237,0.10), transparent 35%),
+      radial-gradient(circle at 92% 50%, rgba(6,182,212,0.09), transparent 35%);
+    pointer-events: none;
+  }
+  .pm-arch-flow {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .pm-arch-flow::before {
+    content: "";
+    position: absolute;
+    top: 50px;
+    left: 7%;
+    right: 7%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--neon-purple) 0%, var(--neon-magenta) 50%, var(--neon-cyan) 100%);
+    border-radius: 2px;
+    opacity: 0.55;
+    z-index: 0;
+    box-shadow: 0 0 14px rgba(124,58,237,0.45), 0 0 28px rgba(6,182,212,0.2);
+  }
+  .pm-arch-flow-pulse {
+    position: absolute;
+    top: 50px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, rgba(255,255,255,0.92) 25%, rgba(168,85,247,0.6) 60%, transparent 75%);
+    box-shadow:
+      0 0 0 3px rgba(168,85,247,0.45),
+      0 0 18px 6px rgba(168,85,247,0.55),
+      0 0 36px 14px rgba(6,182,212,0.32);
+    transform: translate(-50%, -50%);
+    animation: pm-flow-pulse 7s linear infinite;
+    z-index: 3;
+    pointer-events: none;
+  }
+  @keyframes pm-flow-pulse {
+    0%   { left: 7%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    4%   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    86%  { left: 93%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    92%  { left: 93%; opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+    100% { left: 93%; opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  }
+  .pm-arch-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    padding: 0 8px;
+    position: relative;
+    z-index: 2;
+  }
+  .pm-arch-node-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    position: relative;
+    color: #fff;
+    border: 2px solid rgba(168,85,247,0.45);
+    box-shadow:
+      0 10px 28px rgba(124,58,237,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.14),
+      inset 0 -2px 12px rgba(124,58,237,0.18);
+    animation: pm-stage-glow 7s ease-in-out infinite;
+    transition: transform 220ms ease;
+  }
+  .pm-arch-node-circle:hover { transform: scale(1.05); }
+  /* The pulse div is nth-child(1) inside .pm-arch-flow, so nodes are nth-child(2..8). */
+  .pm-arch-node:nth-child(2) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #6d28d9 100%); border-color: rgba(168,85,247,0.5); animation-delay: 0s; }
+  .pm-arch-node:nth-child(3) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #7c3aed 100%); border-color: rgba(168,85,247,0.5); animation-delay: -6s; }
+  .pm-arch-node:nth-child(4) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #a855f7 100%); border-color: rgba(192,38,211,0.5); animation-delay: -5s; }
+  .pm-arch-node:nth-child(5) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #c026d3 100%); border-color: rgba(217,70,239,0.5); animation-delay: -4s; }
+  .pm-arch-node:nth-child(6) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #db2777 100%); border-color: rgba(217,70,239,0.5); animation-delay: -3s; }
+  .pm-arch-node:nth-child(7) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #be185d 100%); border-color: rgba(192,38,211,0.5); animation-delay: -2s; }
+  .pm-arch-node:nth-child(8) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #0891b2 100%); border-color: rgba(34,211,238,0.55); animation-delay: -1s; }
+  @keyframes pm-stage-glow {
+    0%, 14%, 100% {
+      box-shadow:
+        0 10px 28px rgba(124,58,237,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.14),
+        inset 0 -2px 12px rgba(124,58,237,0.18);
+    }
+    6% {
+      transform: scale(1.09);
+      box-shadow:
+        0 14px 36px rgba(168,85,247,0.5),
+        0 0 0 8px rgba(168,85,247,0.18),
+        0 0 32px 6px rgba(6,182,212,0.28),
+        inset 0 1px 0 rgba(255,255,255,0.22);
+    }
+  }
+  .pm-arch-node-icon {
+    width: 38px;
+    height: 38px;
+    color: #fff;
+    filter: drop-shadow(0 0 10px rgba(168,85,247,0.6)) drop-shadow(0 0 18px rgba(6,182,212,0.3));
+    z-index: 1;
+  }
+  .pm-arch-node-num {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    border: 3px solid var(--bg);
+    box-shadow: 0 4px 14px rgba(124,58,237,0.5);
+    z-index: 2;
+  }
+  .pm-arch-node-label {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.2;
+    margin-top: 2px;
+  }
+  .pm-arch-node-sub {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .pm-arch-node-cost {
+    font-size: 10.5px;
+    color: var(--neon-purple);
+    font-weight: 700;
+    background: rgba(124,58,237,0.1);
+    border-radius: 999px;
+    padding: 4px 10px;
+    border: 1px solid rgba(124,58,237,0.22);
+    letter-spacing: 0.01em;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pm-arch-node-circle { animation: none; }
+    .pm-arch-flow-pulse { animation: none; opacity: 0; }
+  }
+  @media (max-width: 980px) {
+    .pm-arch-flow { grid-template-columns: repeat(4, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .pm-arch-flow { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ---- 3-layer security stack ---- */
+  .security-layers {
+    display: flex;
+    flex-direction: column;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid rgba(49,38,23,0.09);
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .security-layer {
+    background: var(--paper);
+    padding: 28px 30px 24px 36px;
+    border-bottom: 1px solid rgba(49,38,23,0.07);
+    position: relative;
+  }
+  .security-layer:last-child { border-bottom: none; }
+  .security-layer::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+  }
+  .security-layer[data-layer="1"]::before {
+    background: linear-gradient(180deg, var(--neon-purple), var(--neon-magenta));
+  }
+  .security-layer[data-layer="2"]::before {
+    background: linear-gradient(180deg, var(--neon-magenta), #be185d);
+  }
+  .security-layer[data-layer="3"]::before {
+    background: linear-gradient(180deg, #be185d, var(--neon-cyan));
+  }
+  .security-layer-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .security-layer-head h3 { margin: 0; font-size: 21px; }
+  .layer-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .security-layer[data-layer="1"] .layer-badge {
+    background: linear-gradient(135deg, var(--neon-purple), var(--neon-magenta));
+  }
+  .security-layer[data-layer="2"] .layer-badge {
+    background: linear-gradient(135deg, var(--neon-magenta), #be185d);
+  }
+  .security-layer[data-layer="3"] .layer-badge {
+    background: linear-gradient(135deg, #be185d, var(--neon-cyan));
+  }
+  .security-layer > p { margin: 0 0 14px; color: var(--muted); line-height: 1.7; }
+  .security-layer .chip-row { margin-top: 0; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <img class="brand-logo" src="images/pain-miner-icon-cropped.png" alt="Pain Miner icon" />
+      <div class="brand-copy">
+        <strong>Pain Miner</strong>
+        <span>Helping devs dig out of doc pain</span>
+      </div>
+    </div>
+    <nav class="nav-links">
+      <a class="nav-pill page-nav" href="reports.html">Reports</a>
+      <a class="nav-pill page-nav" href="index.html">← Home</a>
+    </nav>
+  </div>
+</header>
+
+<div class="section-anchors">
+  <div class="section-anchors-inner">
+    <a href="#architecture">architecture</a>
+    <a href="#targets">targets</a>
+    <a href="#goals">operating model</a>
+    <a href="#apis">apis</a>
+    <a href="#performance">performance</a>
+    <a href="#errors">security</a>
+  </div>
+</div>
+
+<main class="shell">
+
+  <section class="hero">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">project 2 · engagement triage</span>
+        <h1>Find practitioners in pain on visually-rich documents. Reply while it is still hot.</h1>
+        <p>
+          Pain Miner is an engagement-triage queue that surfaces live practitioner
+          pain across Reddit, Hacker News, Stack Overflow, X, and competitor chatter — tuned to the document
+          types where LandingAI ADE actually wins: lab reports, prior auth packets, scientific literature,
+          patient referrals, 10-Ks, prospectuses, valuations, W-2s, due diligence packets, and other documents
+          where commodity OCR and generic LLMs break down.
+        </p>
+        <div class="hero-ctas">
+          <a class="cta-btn cta-primary" href="index.html">Open triage queue</a>
+          <a class="cta-btn cta-secondary" href="reports.html">See reports</a>
+        </div>
+      </div>
+      <div class="glance-card">
+        <div class="glance-header">
+          <span class="glance-label">System at a glance</span>
+          <span class="live-badge">4×/day Mon–Sat</span>
+        </div>
+        <div class="glance-steps">
+          <div class="glance-step">
+            <span class="step-num">01</span>
+            <div class="step-body"><strong>HN Intake</strong><span>Algolia API · 20 keyword queries · no auth</span></div>
+            <span class="step-badge">native</span>
+          </div>
+          <div class="glance-step">
+            <span class="step-num">02</span>
+            <div class="step-body"><strong>SO Intake</strong><span>Stack Exchange API · 35 queries/cycle · tag + intitle</span></div>
+            <span class="step-badge">native</span>
+          </div>
+          <div class="glance-step">
+            <span class="step-num">03</span>
+            <div class="step-body"><strong>Reddit + X</strong><span>Grok web_search + x_search · pain posts · ADE doc focus</span></div>
+            <span class="step-badge">discovery</span>
+          </div>
+          <div class="glance-step">
+            <span class="step-num">04</span>
+            <div class="step-body"><strong>Competitor Monitor</strong><span>Reducto + Unstructured mentions · 14-day window</span></div>
+            <span class="step-badge">monitor</span>
+          </div>
+          <div class="glance-step">
+            <span class="step-num">05</span>
+            <div class="step-body"><strong>LLM Classifier</strong><span>Grok summarize + categorize · opportunity + reply angle</span></div>
+            <span class="step-badge">classify</span>
+          </div>
+          <div class="glance-step">
+            <span class="step-num">06</span>
+            <div class="step-body"><strong>Pain Queue</strong><span>Supabase pain_posts · dedup on post_url · competitor merge</span></div>
+            <span class="step-badge">queue</span>
+          </div>
+          <div class="glance-step">
+            <span class="step-num">07</span>
+            <div class="step-body"><strong>Triage UI</strong><span>painminer.muisbien.com · Reply / Archive / Delete</span></div>
+            <span class="step-badge">triage</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pm-arch-pipeline">
+    <div class="section-head">
+      <div><h2>End-to-end pipeline</h2></div>
+      <p>Four source lanes, one LLM classifier, one queue, one triage UI. Native APIs handle HN and SO with no token cost for retrieval. Grok handles open-web and competitor discovery where structured APIs fall short.</p>
+    </div>
+    <div class="pm-arch-flow-wrap">
+      <div class="pm-arch-flow">
+        <div class="pm-arch-flow-pulse" aria-hidden="true"></div>
+
+        <div class="pm-arch-node">
+          <div class="pm-arch-node-circle">
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <div class="pm-arch-node-num">01</div>
+          </div>
+          <div class="pm-arch-node-label">HN Intake</div>
+          <div class="pm-arch-node-sub">Algolia API<br>20 keyword queries</div>
+          <div class="pm-arch-node-cost">no auth · native</div>
+        </div>
+
+        <div class="pm-arch-node">
+          <div class="pm-arch-node-circle">
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20h20M5 20V8l7-5 7 5v12"/><path d="M9 20v-5h6v5"/></svg>
+            <div class="pm-arch-node-num">02</div>
+          </div>
+          <div class="pm-arch-node-label">SO Intake</div>
+          <div class="pm-arch-node-sub">Stack Exchange API<br>35 queries/cycle</div>
+          <div class="pm-arch-node-cost">300/day quota · native</div>
+        </div>
+
+        <div class="pm-arch-node">
+          <div class="pm-arch-node-circle">
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <div class="pm-arch-node-num">03</div>
+          </div>
+          <div class="pm-arch-node-label">Reddit + X</div>
+          <div class="pm-arch-node-sub">Grok web + x_search<br>ADE doc focus</div>
+          <div class="pm-arch-node-cost">4×/day Mon–Sat · pain posts</div>
+        </div>
+
+        <div class="pm-arch-node">
+          <div class="pm-arch-node-circle">
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <div class="pm-arch-node-num">04</div>
+          </div>
+          <div class="pm-arch-node-label">Competitor Monitor</div>
+          <div class="pm-arch-node-sub">Reducto + Unstructured<br>mentions</div>
+          <div class="pm-arch-node-cost">14-day window</div>
+        </div>
+
+        <div class="pm-arch-node">
+          <div class="pm-arch-node-circle">
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            <div class="pm-arch-node-num">05</div>
+          </div>
+          <div class="pm-arch-node-label">LLM Classifier</div>
+          <div class="pm-arch-node-sub">Grok classify<br>summary + reply angle</div>
+          <div class="pm-arch-node-cost">HN + SO posts</div>
+        </div>
+
+        <div class="pm-arch-node">
+          <div class="pm-arch-node-circle">
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v6c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12v7c0 1.66 4.03 3 9 3s9-1.34 9-3v-7"/></svg>
+            <div class="pm-arch-node-num">06</div>
+          </div>
+          <div class="pm-arch-node-label">Pain Queue</div>
+          <div class="pm-arch-node-sub">Supabase pain_posts<br>dedup + competitor merge</div>
+          <div class="pm-arch-node-cost">post_url dedup</div>
+        </div>
+
+        <div class="pm-arch-node">
+          <div class="pm-arch-node-circle">
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            <div class="pm-arch-node-num">07</div>
+          </div>
+          <div class="pm-arch-node-label">Triage UI</div>
+          <div class="pm-arch-node-sub">Reply / Archive / Delete<br>painminer.muisbien.com</div>
+          <div class="pm-arch-node-cost">8 AM–10 PM ET</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="section-head">
+      <div>
+        <h2>Architecture</h2>
+        <p>Four source lanes feed one triage queue. Native APIs handle Hacker News and Stack Overflow, while Grok covers Reddit, X, and competitor mentions that need broader discovery and summarization.</p>
+      </div>
+    </div>
+    <div class="arch-grid">
+      <article class="arch-step" data-step="01"><h3>Native intake</h3><p>Algolia pulls Hacker News keyword hits and the Stack Exchange API pulls Stack Overflow tag and <code>intitle</code> matches with no LLM needed for initial retrieval.</p></article>
+      <article class="arch-step" data-step="02"><h3>Grok discovery</h3><p>Separate Grok calls handle Reddit/X pain discovery and competitor mentions for Reducto and Unstructured. Native HN/SO candidates also pass through a Grok classifier for summary, reply angle, and categories. Both passes are steered by an ADE focus block that prioritizes visually-rich, structurally complex documents.</p></article>
+      <article class="arch-step" data-step="03"><h3>Queue storage</h3><p>Qualified posts land in <code>pain_posts</code> with <code>status</code>, <code>categories[]</code>, <code>opportunity</code>, and optional <code>competitors[]</code>. Duplicate URLs are merged rather than reinserted.</p></article>
+      <article class="arch-step" data-step="04"><h3>Human triage + cleanup</h3><p>The frontend lets a human reply or delete. Untouched <code>new</code> posts older than 4 days are auto-archived nightly, then rolled into reports and the daily summary email.</p></article>
+    </div>
+  </section>
+
+  <section id="targets">
+    <div class="section-head">
+      <div>
+        <h2>Document targets</h2>
+        <p>The ADE focus block injected into every discovery and classifier prompt steers Grok toward the document types where LandingAI ADE has a real differentiator vs commodity OCR — visually-rich, structurally complex, often domain-specific. Generic plain-text OCR posts are explicitly de-prioritized.</p>
+      </div>
+    </div>
+    <div class="api-grid">
+      <article class="section-card">
+        <small>healthcare clinical</small>
+        <h3>Clinical documents</h3>
+        <p>Lab reports (multi-section, embedded charts, reference ranges), prior authorization packets (multi-page form bundles, faxed pages, evidence attachments, mixed handwritten + typed), patient referrals, discharge summaries, operative notes, pathology reports, CMS-1500 / UB-04 claims, EOBs, denial letters.</p>
+        <div class="chip-row"><span class="mini-chip">lab reports</span><span class="mini-chip">prior auth</span><span class="mini-chip">patient referrals</span><span class="mini-chip">EOBs</span></div>
+      </article>
+      <article class="section-card">
+        <small>scientific + pharma</small>
+        <h3>Scientific literature</h3>
+        <p>Research papers with figures + tables + equations + supplementary data + multi-column layouts + references. Clinical trial protocols, IRB submissions, drug labels, regulatory filings — anywhere the page structure carries as much meaning as the prose.</p>
+        <div class="chip-row"><span class="mini-chip">research papers</span><span class="mini-chip">clinical trials</span><span class="mini-chip">drug labels</span><span class="mini-chip">regulatory</span></div>
+      </article>
+      <article class="section-card">
+        <small>financial + investor-grade</small>
+        <h3>Financial documents</h3>
+        <p>Valuations and appraisal reports (financial tables + footnotes + schedules), investor reports / quarterly fund letters, W-2s / 1099s / K-1s, prospectuses / S-1s / 10-Ks (mixed prose + financials + footnotes), bank statements, brokerage statements, loan packets.</p>
+        <div class="chip-row"><span class="mini-chip">valuations</span><span class="mini-chip">10-Ks</span><span class="mini-chip">W-2s</span><span class="mini-chip">prospectuses</span><span class="mini-chip">investor reports</span></div>
+      </article>
+      <article class="section-card">
+        <small>cross-domain "messy" features</small>
+        <h3>Visual-richness signals</h3>
+        <p>Mixed layouts (tables next to charts next to prose), multi-page docs with cross-references, handwritten annotations + stamps + signatures alongside typed text, forms with conditional logic, charts and scientific figures that need semantic parsing, tables that span multiple pages with continuation rules.</p>
+        <div class="chip-row"><span class="mini-chip">mixed layouts</span><span class="mini-chip">handwriting + print</span><span class="mini-chip">cross-references</span><span class="mini-chip">multi-page tables</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section id="goals">
+    <div class="section-head">
+      <div>
+        <h2>Operating Model</h2>
+        <p>The core behavior is intentionally narrow: find real pain, frame it cleanly, and let a human respond. Everything else in the system exists to support that loop without drifting into classic lead-gen behavior.</p>
+      </div>
+    </div>
+    <div class="goal-grid">
+      <article class="section-card"><small>boundary</small><h3>Not lead-gen</h3><p>No Apollo sequence enrollment, no person-to-company resolution, and no writes into <code>pg_leads</code>. This project ends at the moment a human sees a strong post and decides to reply.</p></article>
+      <article class="section-card"><small>quality gate</small><h3>Keep only useful pain</h3><p>HN and SO are filtered through a classifier that defaults to keep unless content is obvious vendor marketing or off-topic. Grok returns fewer posts rather than padding with weak signal.</p></article>
+      <article class="section-card"><small>throughput</small><h3>Fast cadence, small queue</h3><p>Typical cycles insert roughly 5–15 posts before dedup and around 5–10 after dedup. The point is not volume. It is fresh, reply-worthy context.</p></article>
+    </div>
+  </section>
+
+  <section id="apis">
+    <div class="section-head">
+      <div>
+        <h2>APIs</h2>
+        <p>Six services, zero custom infrastructure. Native structured APIs handle HN and SO at no LLM cost. Grok covers the open web. Supabase holds state. Brevo delivers alerts. nginx serves the frontend.</p>
+      </div>
+    </div>
+    <div class="api-grid-3">
+      <article class="section-card">
+        <div class="api-top"><div><h3>Algolia</h3><div class="api-provider">hacker news search</div></div><span class="role-badge">hn discovery</span></div>
+        <p>Powers Hacker News full-text search via the Algolia HN API. Runs 20 tuned keyword queries per cycle with no API key required. Candidate posts then pass through the Grok classifier for summary and reply angle.</p>
+        <div class="chip-row"><span class="mini-chip">no auth</span><span class="mini-chip">20 queries/cycle</span><span class="mini-chip">keyword search</span></div>
+      </article>
+      <article class="section-card">
+        <div class="api-top"><div><h3>Stack Exchange</h3><div class="api-provider">stack overflow search</div></div><span class="role-badge">so discovery</span></div>
+        <p>Queries Stack Overflow via the Stack Exchange API using 9 tag filters and 26 <code>intitle</code> text queries per cycle — 35 calls total, well under the 300/day anonymous quota. High-precision pre-filter means fewer false positives than open-text search.</p>
+        <div class="chip-row"><span class="mini-chip">anonymous quota</span><span class="mini-chip">35 queries/cycle</span><span class="mini-chip">tag + intitle</span></div>
+      </article>
+      <article class="section-card">
+        <div class="api-top"><div><h3>Grok</h3><div class="api-provider">xAI — discovery + classifier</div></div><span class="role-badge">reddit / x / classify</span></div>
+        <p>Three separate passes per cycle: Reddit + X pain discovery, competitor mention monitoring (Reducto, Unstructured), and HN/SO classification into <code>{summary, opportunity, categories[]}</code>. Source-level failures are non-fatal and alert immediately via Brevo.</p>
+        <div class="chip-row"><span class="mini-chip">web_search</span><span class="mini-chip">x_search</span><span class="mini-chip">classifier pass</span><span class="mini-chip">competitor monitor</span></div>
+      </article>
+      <article class="section-card">
+        <div class="api-top"><div><h3>Supabase</h3><div class="api-provider">state + RPC layer</div></div><span class="role-badge">queue state</span></div>
+        <p><code>pain_posts</code> stores the queue with full status history. Two secret-gated RPCs handle mutations — <code>set_pain_post_status</code> for triage actions and <code>log_painminer_error</code> for frontend error reporting. The anon key alone cannot mutate state.</p>
+        <div class="chip-row"><span class="mini-chip">pain_posts</span><span class="mini-chip">secret RPCs</span><span class="mini-chip">RLS</span></div>
+      </article>
+      <article class="section-card">
+        <div class="api-top"><div><h3>Brevo</h3><div class="api-provider">transactional email</div></div><span class="role-badge">alerts + digest</span></div>
+        <p>Delivers source-level failure alerts, the nightly summary email (11:30 PM ET), and the 15-minute frontend error digest. Verified on <code>mg.muisbien.com</code> via Cloudflare DNS. Free tier: 300 emails/day, 9k/month.</p>
+        <div class="chip-row"><span class="mini-chip">failure alerts</span><span class="mini-chip">daily summary</span><span class="mini-chip">error digest</span></div>
+      </article>
+      <article class="section-card">
+        <div class="api-top"><div><h3>nginx</h3><div class="api-provider">static server + auth gate</div></div><span class="role-badge">delivery</span></div>
+        <p>Serves the static frontend behind htpasswd basic auth, with <code>/config.js</code> auth-gated separately from all other files. Cloudflare sits in front as the SSL terminator (Flexible mode — HTTP to origin). Zero build step, no Node runtime on the droplet.</p>
+        <div class="chip-row"><span class="mini-chip">htpasswd</span><span class="mini-chip">config.js gate</span><span class="mini-chip">cloudflare ssl</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section id="performance">
+    <div class="section-head">
+      <div>
+        <h2>Performance</h2>
+        <p>The system is optimized for low-cost, high-signal refresh rather than heavy enrichment. Native APIs do the structured work, Grok handles the fuzzy work, and the queue stays small enough for a human to actually use.</p>
+      </div>
+    </div>
+    <div class="perf-grid">
+      <article class="section-card"><small>cadence</small><h3>4× daily, Mon–Sat</h3><p>Discovery runs at 10 AM, 1 PM, 4 PM, and 7 PM ET, Monday through Saturday — staggered 1 hour after Signal Sweep to avoid xAI TPM contention on the shared API key.</p></article>
+      <article class="section-card"><small>typical cycle</small><h3>5–10 net posts</h3><p>After source fetch, classification, dedup, and DB overlap checks, a normal production cycle lands a handful of usable cards rather than a flood of noise.</p></article>
+      <article class="section-card"><small>retention</small><h3>4-day archive window</h3><p>New posts that nobody touched are flipped to <code>archived</code> at 11 PM ET, which keeps the queue focused and makes reports easier to interpret.</p></article>
+      <article class="section-card"><small>frontend contract</small><h3>Reload-based freshness</h3><p>The queue loads on page visit and refreshes on browser reload. There is no auto-polling and no in-app refresh button because the cron cadence already does the heavy lifting.</p></article>
+    </div>
+  </section>
+
+  <section id="errors">
+    <div class="section-head">
+      <div>
+        <h2>Security model</h2>
+        <p>Three concentric layers of defense in depth. Punching through the perimeter still requires a valid secret. Stealing the secret still can&rsquo;t exceed rate caps baked into the database.</p>
+      </div>
+    </div>
+
+    <div class="security-layers">
+      <div class="security-layer" data-layer="1">
+        <div class="security-layer-head">
+          <span class="layer-badge">Layer 1</span>
+          <h3>Perimeter</h3>
+          <span class="role-badge">cloudflare · nginx</span>
+        </div>
+        <p>Cloudflare proxies all traffic — providing DDoS mitigation and TLS termination before requests reach the origin. nginx enforces HTTP basic auth on <code>/config.js</code>, the only file that holds Supabase keys and the RPC secret. Multi-tenant deployments use per-user htpasswd entries so each team member gets their own credentials; nginx validates them separately with no shared password. Security headers prevent clickjacking, MIME-type sniffing, and unintended referrer leakage across the entire site. HTML and config files are served with <code>Cache-Control: no-store</code>.</p>
+        <div class="chip-row">
+          <span class="mini-chip">Cloudflare proxy + TLS</span>
+          <span class="mini-chip">htpasswd — per-user credentials</span>
+          <span class="mini-chip">config.js auth-gated</span>
+          <span class="mini-chip">X-Frame-Options: SAMEORIGIN</span>
+          <span class="mini-chip">X-Content-Type-Options: nosniff</span>
+          <span class="mini-chip">Referrer-Policy: strict-origin</span>
+          <span class="mini-chip">Cache-Control: no-store</span>
+        </div>
+      </div>
+
+      <div class="security-layer" data-layer="2">
+        <div class="security-layer-head">
+          <span class="layer-badge">Layer 2</span>
+          <h3>Backend access controls</h3>
+          <span class="role-badge">supabase RLS · secret RPCs</span>
+        </div>
+        <p><code>pain_posts</code> allows anon SELECT — reads are safe to expose, writes are not. <code>pain_miner_secrets</code> and <code>pain_miner_errors</code> have RLS enabled with zero policies, so the anon role is fully blocked on both read and write. All mutations route through two secret-gated RPCs — <code>set_pain_post_status</code> and <code>log_painminer_error</code> — that validate a shared secret server-side before executing. Server scripts hold the service-role key and it never leaves the droplet. <code>set_pain_post_status</code> accepts an optional <code>p_user</code> parameter: the authenticated username parsed from the client&rsquo;s htpasswd session, written to <code>actioned_by</code> + <code>actioned_at</code> on every Reply / Delete / Archive for a full audit trail.</p>
+        <div class="chip-row">
+          <span class="mini-chip">RLS — anon select-only on pain_posts</span>
+          <span class="mini-chip">RLS — anon fully blocked on secrets + errors</span>
+          <span class="mini-chip">set_pain_post_status RPC (+ p_user audit)</span>
+          <span class="mini-chip">log_painminer_error RPC</span>
+          <span class="mini-chip">actioned_by + actioned_at audit columns</span>
+          <span class="mini-chip">service-role key server-only</span>
+        </div>
+      </div>
+
+      <div class="security-layer" data-layer="3">
+        <div class="security-layer-head">
+          <span class="layer-badge">Layer 3</span>
+          <h3>Input hardening + rate limits</h3>
+          <span class="role-badge">url validation · db rate cap</span>
+        </div>
+        <p>Every ingest URL is validated at write time — only <code>http://</code> and <code>https://</code> schemes accepted; <code>javascript:</code> and <code>data:</code> URIs are rejected before touching the database. The frontend <code>safeHref()</code> re-validates all URLs before rendering any anchor as a second line of defense. The error-logging RPC enforces a hard 20-events-per-fingerprint-per-hour cap inside the database — it cannot be bypassed from the frontend. Fingerprints are truncated to 64 chars <em>before</em> the rate-limit COUNT to close the suffix-variation bypass.</p>
+        <div class="chip-row">
+          <span class="mini-chip">http/https-only URL ingest</span>
+          <span class="mini-chip">javascript: + data: blocked</span>
+          <span class="mini-chip">safeHref() frontend re-check</span>
+          <span class="mini-chip">20 / fp / hr RPC rate cap</span>
+          <span class="mini-chip">fingerprint truncation at 64 chars</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <article class="section-card">
+        <div class="detail-top"><h3>Multi-tenant access</h3><span class="role-badge">per-user htpasswd</span></div>
+        <p>Each team member gets their own htpasswd credential — no shared password. nginx validates them independently. The authenticated username is parsed from the session token on the client and passed to <code>set_pain_post_status</code> as <code>p_user</code>, so every Reply, Delete, and Archive action is recorded against the specific user who took it in <code>pain_posts.actioned_by</code> + <code>actioned_at</code>. To add a user: <code>sudo htpasswd /etc/nginx/painminer.htpasswd &lt;username&gt;</code>.</p>
+      </article>
+      <article class="section-card">
+        <div class="detail-top"><h3>Frontend error digest</h3><span class="role-badge">15 min cadence</span></div>
+        <p><code>error-shim.js</code> captures <code>window.onerror</code>, <code>unhandledrejection</code>, and explicit app errors, fingerprints them, and batches them into a Brevo email digest every 15 minutes so frontend regressions surface without manual console inspection.</p>
+      </article>
+      <article class="section-card">
+        <div class="detail-top"><h3>Ops visibility</h3><span class="role-badge">daily + real-time</span></div>
+        <p>Brevo delivers source-level Grok failure alerts in real time, daily queue summaries at 11:30 PM ET, and frontend error digests grouped by fingerprint — so any degraded state is visible the same day it happens.</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<div class="footer-note shell">
+  Live production system. Source: <code>scripts/pain_miner.py</code>, <code>schema/pain_miner.sql</code>, <code>web/painminer/</code>.
+</div>
+<!-- error-shim is a no-op without config.js + Supabase client (it talks to the
+     log_painminer_error RPC). Load both so frontend exceptions on this page
+     also flow into the 15-min error digest. config.js is loaded async via
+     the auth gate below (same pattern as index.html / reports.html). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="error-shim.js"></script>
+<script>
+  (async function() {
+    const auth = sessionStorage.getItem('pm_auth');
+    if (!auth) { window.location.replace('/login.html'); return; }
+    try {
+      const r = await fetch('/config.js', {
+        headers: { Authorization: 'Basic ' + auth },
+        cache: 'no-store',
+      });
+      if (!r.ok) {
+        sessionStorage.removeItem('pm_auth');
+        window.location.replace('/login.html');
+        return;
+      }
+      // eslint-disable-next-line no-new-func
+      new Function(await r.text())();
+    } catch (_) { /* non-fatal — error-shim works without config */ }
+  })();
+</script>
+</body>
+</html>

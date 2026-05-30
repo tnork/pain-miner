@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pain Miner — Sign In</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 12% 4%, rgba(124, 58, 237, 0.18), transparent 30%),
+        radial-gradient(circle at 88% 6%, rgba(6, 182, 212, 0.15), transparent 28%),
+        radial-gradient(circle at 50% 100%, rgba(217, 70, 239, 0.07), transparent 38%),
+        linear-gradient(180deg, #f7f1e6 0%, #efe6d6 50%, #ebe0d0 100%);
+    }
+    .card {
+      background: #fffbf5;
+      border: 1px solid rgba(49, 38, 23, 0.10);
+      border-radius: 28px;
+      box-shadow: 0 32px 80px rgba(54, 39, 24, 0.18), 0 4px 16px rgba(124, 58, 237, 0.08);
+      padding: 44px 40px 36px;
+      width: min(420px, calc(100vw - 48px));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .logo-ring {
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      padding: 3px;
+      background: linear-gradient(135deg, #ff9f5d 0%, #f06c62 40%, #7c3aed 72%, #06b6d4 100%);
+      box-shadow: 0 14px 40px rgba(124, 58, 237, 0.26), 0 4px 12px rgba(255, 135, 89, 0.18);
+      margin-bottom: 22px;
+      flex-shrink: 0;
+    }
+    .logo {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      object-position: center 44%;
+      display: block;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 30px;
+      font-weight: 800;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: -0.045em;
+      line-height: 0.9;
+      background: linear-gradient(135deg, #ff9f5d 0%, #ff8759 38%, #f06c62 72%, #ea6d77 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .sub {
+      margin: 0 0 30px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #3b2478 0%, #5c39bf 44%, #7d54f4 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    input {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1px solid rgba(49, 38, 23, 0.14);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.82);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      font-size: 14px;
+      color: #1a1626;
+      outline: none;
+      transition: border-color 180ms ease, box-shadow 180ms ease;
+    }
+    input:focus {
+      border-color: rgba(124, 58, 237, 0.50);
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.10);
+    }
+    input::placeholder { color: #a097b8; }
+    .btn-signin {
+      margin-top: 16px;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #1a103e 0%, #7c3aed 55%, #06b6d4 100%);
+      box-shadow: 0 10px 28px rgba(124, 58, 237, 0.28);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+    .btn-signin:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-signin:active { transform: none; opacity: 1; }
+    .btn-signin:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .err {
+      min-height: 18px;
+      margin-top: 6px;
+      font-size: 13px;
+      color: #c2410c;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-ring">
+      <img class="logo" src="images/pain-miner-login-logo2.png" alt="Pain Miner" />
+    </div>
+    <h1>Pain Miner</h1>
+    <div class="sub">Helping devs dig out of document pain</div>
+    <form id="form">
+      <input id="user" type="text" placeholder="Username" autocomplete="username" required />
+      <input id="pass" type="password" placeholder="Password" autocomplete="current-password" required />
+      <button class="btn-signin" id="btn" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="err"></div>
+  </div>
+
+  <script>
+    // If already authenticated, skip straight to the app.
+    const _existing = sessionStorage.getItem('pm_auth');
+    if (_existing) {
+      fetch('/config.js', { headers: { Authorization: 'Basic ' + _existing }, cache: 'no-store' })
+        .then(r => { if (r.ok) window.location.replace('/index.html'); })
+        .catch(() => {});
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('err');
+      const btn = document.getElementById('btn');
+      err.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+
+      const user = document.getElementById('user').value.trim();
+      const pass = document.getElementById('pass').value;
+      const token = btoa(user + ':' + pass);
+
+      try {
+        const r = await fetch('/config.js', {
+          headers: { Authorization: 'Basic ' + token },
+          cache: 'no-store',
+        });
+        if (r.status === 401) {
+          err.textContent = 'Invalid username or password.';
+          btn.disabled = false;
+          btn.textContent = 'Sign in';
+          return;
+        }
+        if (!r.ok) {
+          err.textContent = 'Server error (' + r.status + '). Try again.';
+          btn.disabled = false;
+          btn.textContent = 'Sign in';
+          return;
+        }
+        sessionStorage.setItem('pm_auth', token);
+        const next = new URLSearchParams(location.search).get('next') || '/index.html';
+        window.location.replace(next);
+      } catch (_) {
+        err.textContent = 'Network error. Try again.';
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      }
+    });
+  </script>
+</body>
+</html>

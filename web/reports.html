@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pain Miner — Reports</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    /* Page-specific styling. theme.css provides the shared visual system
+       (tokens, body bg, topbar, brand lockup, .nav-pill, pulse animation,
+       responsive base). */
+
+    /* Hero */
+    .hero { padding: 32px 0 22px; }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 22px;
+    }
+    .hero-copy, .hero-panel, .tabs-wrap, .stat, .chart-card, .modal {
+      background: var(--paper);
+      border: 1px solid rgba(49,38,23,0.08);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .hero-copy, .hero-panel { border-radius: 34px; padding: 30px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-radius: 999px;
+      background: rgba(255,255,255,0.74);
+      border: 1px solid rgba(49,38,23,0.08);
+      color: var(--muted);
+      font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .eyebrow::before {
+      content: ""; width: 8px; height: 8px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--signal), var(--accent));
+    }
+    .hero-copy h1 {
+      margin-top: 18px;
+      font-size: clamp(2.2rem, 4vw, 4rem);
+      line-height: 0.95;
+      max-width: 16ch;
+    }
+    .hero-copy p {
+      margin-top: 16px; color: var(--muted);
+      font-size: 17px; line-height: 1.65; max-width: 58ch;
+    }
+    .hero-panel { display: grid; gap: 12px; }
+    .info-box {
+      padding: 16px; border-radius: 18px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(49,38,23,0.08);
+    }
+    .info-box strong { display: block; font-size: 14px; margin-bottom: 6px; color: var(--ink); }
+    .info-box span { display: block; color: var(--muted); font-size: 13px; line-height: 1.55; }
+
+    /* Tabs */
+    .tabs-wrap {
+      border-radius: 28px;
+      padding: 16px 18px;
+      margin-top: 24px;
+      margin-bottom: 18px;
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    }
+    .tab {
+      text-decoration: none;
+      padding: 9px 13px; border-radius: 999px;
+      border: 1px solid rgba(49,38,23,0.08);
+      background: rgba(255,250,243,0.75);
+      color: var(--muted);
+      font-size: 12.5px;
+      cursor: pointer; user-select: none;
+      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, color 180ms ease;
+    }
+    .tab:hover {
+      transform: translateY(-1px);
+      background: #fffdf9;
+      border-color: rgba(49,38,23,0.18);
+      color: var(--ink);
+    }
+    .tab.active {
+      background: linear-gradient(135deg, var(--indigo-night) 0%, var(--neon-purple) 55%, var(--neon-cyan) 100%);
+      color: #fff;
+      border-color: rgba(124,58,237,0.22);
+      box-shadow: 0 10px 24px rgba(124, 58, 237, 0.24);
+    }
+    .meta { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 700px)  { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat {
+      border-radius: 24px;
+      padding: 20px;
+      cursor: pointer;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+    .stat:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 24px 70px rgba(54, 39, 24, 0.16);
+      border-color: rgba(124,58,237,0.18);
+    }
+    .stat-label { color: var(--gold); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+    .stat-value {
+      margin-top: 12px;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+      color: var(--ink);
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .stat-sub { margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+    /* Charts */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 980px) { .charts-grid { grid-template-columns: 1fr; } }
+    .chart-card {
+      border-radius: 28px;
+      padding: 22px 22px 18px;
+      min-height: 320px;
+      position: relative;
+    }
+    .chart-card.full { grid-column: 1 / -1; }
+    .chart-title {
+      font-size: 18px;
+      color: var(--ink);
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    .chart-sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
+    .chart-stage {
+      height: 240px;
+      border-radius: 20px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.56), rgba(255,255,255,0.92)),
+        repeating-linear-gradient(to top, transparent, transparent 34px, rgba(24,24,28,0.06) 34px, rgba(24,24,28,0.06) 35px);
+      border: 1px solid rgba(49,38,23,0.08);
+      padding: 12px;
+      position: relative;
+    }
+    .chart-stage.tall { height: 320px; }
+    .chart-stage canvas { width: 100% !important; height: 100% !important; }
+
+    .empty { color: var(--muted); padding: 40px 20px; text-align: center; font-size: 14px; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(22, 18, 12, 0.42);
+      backdrop-filter: blur(10px);
+      display: none; align-items: center; justify-content: center;
+      z-index: 100; padding: 16px;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      width: min(820px, 100%);
+      max-height: 80vh;
+      border-radius: 28px;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      background: var(--paper-strong);
+    }
+    .modal-head {
+      padding: 18px 22px;
+      border-bottom: 1px solid rgba(49,38,23,0.08);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-head h2 {
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .modal-close {
+      border: 0; background: transparent;
+      color: var(--muted);
+      font-size: 28px; line-height: 1;
+      padding: 4px 12px; border-radius: 8px;
+      cursor: pointer;
+      transition: background 180ms ease, color 180ms ease;
+    }
+    .modal-close:hover { color: var(--ink); background: rgba(49,38,23,0.06); }
+    .modal-body { padding: 18px 22px 22px; display: grid; gap: 14px; overflow: auto; }
+    .post-row {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(49,38,23,0.08);
+      background: rgba(255,255,255,0.7);
+    }
+    .meta-row {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      margin-bottom: 10px;
+      font-size: 11px; color: var(--muted);
+    }
+    .pill {
+      font-size: 10px; padding: 5px 9px; border-radius: 999px;
+      font-family: ui-monospace, monospace;
+      text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
+    }
+    .pill.reddit { background: rgba(255,69,0,0.12); color: var(--reddit); }
+    .pill.hackernews { background: rgba(255,123,52,0.12); color: var(--hn); }
+    .pill.stackoverflow { background: rgba(244,128,36,0.12); color: var(--so); }
+    .pill.x { background: rgba(29,161,242,0.12); color: var(--x); }
+    .pill.other { background: rgba(140,140,140,0.14); color: var(--other); }
+    .pill.status-new { background: rgba(15,118,110,0.10); color: var(--accent); }
+    .pill.status-replied { background: rgba(124,58,237,0.10); color: var(--neon-purple-deep); }
+    .pill.status-deleted { background: rgba(226,76,87,0.12); color: var(--danger); }
+    .pill.status-archived { background: rgba(161,98,7,0.12); color: var(--gold); }
+    .pill.status-completed { background: rgba(8,145,178,0.12); color: #0891b2; }
+    .post-link {
+      color: var(--ink); text-decoration: none; font-size: 14.5px;
+      border-bottom: 1px dotted rgba(49,38,23,0.22);
+      transition: border-color 180ms ease;
+    }
+    .post-link:hover { border-color: var(--neon-purple); }
+
+    .footer-note { padding: 28px 0 36px; color: var(--muted); text-align: center; font-size: 12px; }
+
+    @media (max-width: 980px) { .hero-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <img class="brand-logo" src="images/pain-miner-icon-cropped.png" alt="Pain Miner icon" />
+        <div class="brand-copy">
+          <strong>Pain Miner</strong>
+          <span>Helping devs dig out of doc pain</span>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a class="nav-pill page-nav" href="overview.html">About</a>
+        <a class="nav-pill page-nav" href="index.html">← Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="tabs-wrap">
+      <span class="tab active" data-window="7">7 days</span>
+      <span class="tab" data-window="30">30 days</span>
+      <span class="tab" data-window="90">90 days</span>
+      <span class="tab" data-window="365">1 year</span>
+      <span class="meta" id="window-meta">loading…</span>
+    </section>
+
+    <section class="stats-grid" id="stats-grid"></section>
+
+    <section class="charts-grid">
+      <article class="chart-card">
+        <div class="chart-title">Posts by platform</div>
+        <div class="chart-sub">Where Pain Miner is surfacing usable signal — click platform donut slices to drill in</div>
+        <div class="chart-stage"><canvas id="chart-platform"></canvas></div>
+      </article>
+      <article class="chart-card">
+        <div class="chart-title">Status breakdown</div>
+        <div class="chart-sub">What the team did with surfaced posts</div>
+        <div class="chart-stage"><canvas id="chart-status"></canvas></div>
+      </article>
+      <article class="chart-card full">
+        <div class="chart-title">Daily action timeline</div>
+        <div class="chart-sub">Replied vs archived vs deleted across the window</div>
+        <div class="chart-stage tall"><canvas id="chart-timeline"></canvas></div>
+      </article>
+      <article class="chart-card full">
+        <div class="chart-title">Top topics</div>
+        <div class="chart-sub">Most frequent pain themes — click a bar to drill into matching posts</div>
+        <div class="chart-stage"><canvas id="chart-topics"></canvas></div>
+      </article>
+    </section>
+  </main>
+
+  <div class="footer-note shell">
+    Live data from <code>pain_posts</code>. Source: <code>scripts/pain_miner.py</code>, <code>web/painminer/reports.html</code>.
+  </div>
+
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="modal-title">Posts</h2>
+        <button class="modal-close" id="modal-close" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="error-shim.js"></script>
+  <script>
+    (async function _initReports() {
+      const auth = sessionStorage.getItem('pm_auth');
+      if (!auth) { window.location.replace('/login.html'); return; }
+      try {
+        const r = await fetch('/config.js', {
+          headers: { Authorization: 'Basic ' + auth },
+          cache: 'no-store',
+        });
+        if (!r.ok) {
+          sessionStorage.removeItem('pm_auth');
+          window.location.replace('/login.html');
+          return;
+        }
+        // eslint-disable-next-line no-new-func
+        new Function(await r.text())();
+      } catch (_) {
+        document.getElementById('window-meta').textContent = 'Config load failed — try reloading.';
+        return;
+      }
+
+    const PLATFORM_LABEL = {
+      reddit: "Reddit", hackernews: "Hacker News", stackoverflow: "Stack Overflow",
+      x: "X", other: "Other",
+    };
+    const PLATFORM_COLOR = {
+      reddit: "#ff6234", hackernews: "#ff7b34", stackoverflow: "#f48024",
+      x: "#1da1f2", other: "#a8a298",
+    };
+    const STATUS_LABEL = { new: "New", replied: "Replied", deleted: "Deleted", archived: "Archived", completed: "Done" };
+    const STATUS_COLOR = {
+      new:       "#0f766e",   // accent (teal)
+      replied:   "#7c3aed",   // neon purple
+      deleted:   "#c2410c",   // signal (orange)
+      archived:  "#a16207",   // gold
+      completed: "#0891b2",   // cyan
+    };
+
+    const cfg = window.PAINMINER_CONFIG || {};
+    if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || !cfg.rpcSecret) {
+      document.getElementById('window-meta').textContent = 'config.js missing — run the deploy script';
+      return;
+    }
+    const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+    Chart.defaults.color = "#5b5868";
+    Chart.defaults.borderColor = "rgba(49, 38, 23, 0.14)";
+    Chart.defaults.font.family = "\"Avenir Next\", \"Segoe UI\", sans-serif";
+
+    const charts = {};
+    let allPosts = [];
+    let currentWindow = 7;
+
+    function esc(s) {
+      if (s == null) return "";
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+    function safeHref(url) {
+      if (typeof url !== "string") return "#";
+      const u = url.trim();
+      return (u.startsWith("https://") || u.startsWith("http://")) ? u : "#";
+    }
+
+    document.querySelectorAll(".tab").forEach(t => {
+      t.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+        t.classList.add("active");
+        currentWindow = Number(t.dataset.window);
+        load();
+      });
+    });
+
+    async function load() {
+      document.getElementById("window-meta").textContent = "loading…";
+      const cutoff = new Date(Date.now() - currentWindow * 24 * 3600 * 1000).toISOString();
+      const { data, error } = await sb.rpc("get_pain_posts_for_reports", {
+        p_secret: cfg.rpcSecret,
+        p_cutoff: cutoff,
+      });
+      if (error) {
+        console.error(error);
+        document.getElementById("window-meta").textContent = "load failed: " + error.message;
+        if (window.painminerError) window.painminerError(error, { fn: "reports.load" });
+        return;
+      }
+      allPosts = data || [];
+      document.getElementById("window-meta").textContent =
+        `${allPosts.length} post${allPosts.length === 1 ? "" : "s"} in last ${currentWindow} day${currentWindow === 1 ? "" : "s"}`;
+      render();
+    }
+
+    function render() {
+      const total = allPosts.length;
+      const byStatus = {};
+      const byPlatform = {};
+      const byCategory = {};
+      const byDayStatus = {};
+      for (const p of allPosts) {
+        byStatus[p.status] = (byStatus[p.status] || 0) + 1;
+        byPlatform[p.platform] = (byPlatform[p.platform] || 0) + 1;
+        for (const c of (p.categories || [])) byCategory[c] = (byCategory[c] || 0) + 1;
+        if (p.status !== "new" && p.status_changed_at) {
+          const day = p.status_changed_at.slice(0, 10);
+          if (!byDayStatus[day]) byDayStatus[day] = { replied: 0, deleted: 0, archived: 0, completed: 0 };
+          if (byDayStatus[day][p.status] != null) byDayStatus[day][p.status]++;
+        }
+      }
+
+      const replied = byStatus.replied || 0;
+      const completed = byStatus.completed || 0;
+      const archived = byStatus.archived || 0;
+      const deleted = byStatus.deleted || 0;
+      const competitorMentions = allPosts.filter(p => (p.competitors || []).length > 0).length;
+      const grid = document.getElementById("stats-grid");
+      grid.innerHTML = "";
+      [
+        ["total",       "Total posts",        total,              `discovered in last ${currentWindow}d`],
+        ["completed",   "Done",               completed,          `via done ✓ button`],
+        ["replied",     "Replied",            replied,            `manually marked replied`],
+        ["archived",    "Auto-archived",      archived,           `untouched > 4 days`],
+        ["deleted",     "Deleted",            deleted,            `marked irrelevant`],
+        ["competitors", "Competitor mentions", competitorMentions, `Reducto / Unstructured`],
+      ].forEach(([key, label, value, sub]) => {
+        const el = document.createElement("article");
+        el.className = "stat";
+        el.dataset.statKey = key;
+        el.innerHTML = `
+          <div class="stat-label">${esc(label)}</div>
+          <div class="stat-value">${value}</div>
+          <div class="stat-sub">${esc(sub)}</div>
+        `;
+        el.addEventListener("click", () => openDrillIn(key));
+        grid.appendChild(el);
+      });
+
+      drawDoughnut("chart-platform", "platform", byPlatform, PLATFORM_LABEL, PLATFORM_COLOR);
+      drawDoughnut("chart-status", "status", byStatus, STATUS_LABEL, STATUS_COLOR);
+      const topCats = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      drawTopicsBar("chart-topics", topCats);
+      drawTimeline("chart-timeline", byDayStatus);
+    }
+
+    function drawDoughnut(canvasId, prefix, counts, labelMap, colorMap) {
+      const keys = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+      const labels = keys.map(k => labelMap[k] || k);
+      const data = keys.map(k => counts[k]);
+      const colors = keys.map(k => colorMap[k] || "#a8a298");
+      if (charts[canvasId]) charts[canvasId].destroy();
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      charts[canvasId] = new Chart(ctx, {
+        type: "doughnut",
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: "#fbf6ec", borderWidth: 2 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: "60%",
+          plugins: {
+            legend: { position: "right", labels: { boxWidth: 12, padding: 12 } },
+            tooltip: { callbacks: { label: (c) => `${c.label}: ${c.parsed} (${Math.round(100*c.parsed/data.reduce((a,b)=>a+b,0))}%)` } },
+          },
+          onClick: (_evt, els) => {
+            if (!els.length) return;
+            const k = keys[els[0].index];
+            openDrillIn(`${prefix}:${k}`);
+          },
+        },
+      });
+    }
+
+    function drawTopicsBar(canvasId, topCats) {
+      if (charts[canvasId]) charts[canvasId].destroy();
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      charts[canvasId] = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: topCats.map(([c]) => c),
+          datasets: [{
+            label: "Posts",
+            data: topCats.map(([, n]) => n),
+            backgroundColor: "rgba(124, 58, 237, 0.45)",
+            borderColor: "#7c3aed",
+            borderWidth: 1,
+          }],
+        },
+        options: {
+          indexAxis: "y", responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { precision: 0 }, grid: { color: "rgba(49, 38, 23, 0.10)" } },
+            y: { grid: { display: false } },
+          },
+          onClick: (_evt, els) => {
+            if (!els.length) return;
+            const cat = topCats[els[0].index][0];
+            openDrillIn(`category:${cat}`);
+          },
+        },
+      });
+    }
+
+    function drawTimeline(canvasId, byDayStatus) {
+      const days = Object.keys(byDayStatus).sort();
+      const completed = days.map(d => byDayStatus[d].completed || 0);
+      const replied = days.map(d => byDayStatus[d].replied);
+      const archived = days.map(d => byDayStatus[d].archived);
+      const deleted = days.map(d => byDayStatus[d].deleted);
+      if (charts[canvasId]) charts[canvasId].destroy();
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      charts[canvasId] = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: days,
+          datasets: [
+            { label: "Done",     data: completed, backgroundColor: STATUS_COLOR.completed },
+            { label: "Replied",  data: replied,   backgroundColor: STATUS_COLOR.replied   },
+            { label: "Archived", data: archived,  backgroundColor: STATUS_COLOR.archived  },
+            { label: "Deleted",  data: deleted,   backgroundColor: STATUS_COLOR.deleted   },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: "top", labels: { boxWidth: 12 } } },
+          scales: {
+            x: { stacked: true, grid: { display: false } },
+            y: { stacked: true, ticks: { precision: 0 }, grid: { color: "rgba(49, 38, 23, 0.10)" } },
+          },
+        },
+      });
+    }
+
+    // -- Drill-in modal --
+    function openDrillIn(key) {
+      let title = "Posts", filter = (_p) => true;
+      if (key === "total")    { title = "All posts in window"; }
+      else if (key === "completed")   { title = "Done posts"; filter = p => p.status === "completed"; }
+      else if (key === "replied")     { title = "Replied posts"; filter = p => p.status === "replied"; }
+      else if (key === "archived")    { title = "Auto-archived posts"; filter = p => p.status === "archived"; }
+      else if (key === "deleted")     { title = "Deleted posts"; filter = p => p.status === "deleted"; }
+      else if (key === "competitors") { title = "Competitor mention posts"; filter = p => (p.competitors || []).length > 0; }
+      else if (key.startsWith("platform:")) {
+        const v = key.slice("platform:".length);
+        title = `Posts on ${PLATFORM_LABEL[v] || v}`;
+        filter = p => p.platform === v;
+      } else if (key.startsWith("status:")) {
+        const v = key.slice("status:".length);
+        title = `${STATUS_LABEL[v] || v} posts`;
+        filter = p => p.status === v;
+      } else if (key.startsWith("category:")) {
+        const v = key.slice("category:".length);
+        title = `Posts tagged ${v}`;
+        filter = p => (p.categories || []).includes(v);
+      }
+      const matches = allPosts.filter(filter);
+      document.getElementById("modal-title").textContent = `${title} (${matches.length})`;
+      const body = document.getElementById("modal-body");
+      if (!matches.length) {
+        body.innerHTML = `<div class="empty">No posts.</div>`;
+      } else {
+        body.innerHTML = matches.map(p => `
+          <div class="post-row">
+            <div class="meta-row">
+              <span class="pill ${esc(p.platform)}">${esc(PLATFORM_LABEL[p.platform] || p.platform)}</span>
+              <span class="pill status-${esc(p.status)}">${esc(STATUS_LABEL[p.status] || p.status)}</span>
+              <span>${esc((p.discovered_at || "").slice(0, 10))}</span>
+            </div>
+            <a class="post-link" href="${esc(safeHref(p.post_url))}" target="_blank" rel="noopener">${esc(p.post_title || "(untitled)")}</a>
+          </div>
+        `).join("");
+      }
+      document.getElementById("modal-backdrop").classList.add("show");
+    }
+
+    document.getElementById("modal-close").addEventListener("click", closeModal);
+    document.getElementById("modal-backdrop").addEventListener("click", (e) => {
+      if (e.target.id === "modal-backdrop") closeModal();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+    function closeModal() { document.getElementById("modal-backdrop").classList.remove("show"); }
+
+    load();
+    })(); // end _initReports
+  </script>
+</body>
+</html>

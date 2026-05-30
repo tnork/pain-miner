@@ -1,0 +1,17 @@
+# Pain Miner — crontab entries for /opt/pain-miner
+# Install: crontab /opt/pain-miner/deploy/crontab.example
+# Or add individually with: crontab -e
+#
+# All times UTC. In EDT (UTC-4): subtract 4h. In EST (UTC-5): subtract 5h.
+
+# Discovery — 4x/day Mon-Sat (10 AM, 1 PM, 4 PM, 7 PM ET = 14, 17, 20, 23 UTC EDT)
+0 14,17,20,23 * * 1-6 cd /opt/pain-miner && /opt/pain-miner/venv/bin/python3 scripts/pain_miner.py --mode discover >> /var/log/pain-miner.log 2>&1
+
+# Archive sweep — daily 11 PM ET (3:00 UTC)
+0 3 * * * cd /opt/pain-miner && /opt/pain-miner/venv/bin/python3 scripts/pain_miner.py --mode archive >> /var/log/pain-miner.log 2>&1
+
+# Daily summary email — 11:30 PM ET (3:30 UTC), after archive sweep
+30 3 * * * cd /opt/pain-miner && /opt/pain-miner/venv/bin/python3 scripts/pain_miner.py --mode daily-summary >> /var/log/pain-miner.log 2>&1
+
+# Frontend error digest — every 15 min (single-runner via fcntl.flock)
+*/15 * * * * cd /opt/pain-miner && /opt/pain-miner/venv/bin/python3 scripts/pain_miner.py --mode error-digest >> /var/log/pain-miner.log 2>&1
