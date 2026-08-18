@@ -92,7 +92,9 @@ _xai_post_with_retry = _retry_lib.xai_post_with_retry
 5. Run `bash /opt/lai-research/deploy/droplet/painminer-deploy.sh` (idempotent — copies `web/painminer/*` → `/var/www/painminer/`, regenerates `config.js`, reloads nginx).
 6. No crontab change needed — cron already points at `/opt/lai-research/scripts/pain_miner.py`, so step 2 alone is what makes a code change live for the next scheduled run.
 
-**Known issue, not yet fixed:** `/opt/lai-research`'s `git remote -v` has a GitHub PAT embedded in plaintext in the origin URL. Needs rotating — not something to fix via an automated agent action, flag it for Tyler to rotate by hand in GitHub settings.
+**Fixed 2026-08-18:** `/opt/lai-research`'s `git remote -v` used to have a GitHub PAT embedded in plaintext in the origin URL. Now uses `origin = https://github.com/tnork/muisbien.git` with auth via a stored credential helper (`git config credential.helper store`, token in `~/.git-credentials`, `chmod 600`) — confirmed neither `git remote -v` nor `.git/config` expose the token anymore, and `git fetch` against the renamed repo works. Plain `git pull` inside `/opt/lai-research` is safe again (no token in the URL to leak via shell history/`ps`).
+
+This is orthogonal to the shim-preservation caveat above: `git pull` only matters for picking up commits already pushed to `tnork/muisbien`'s own history (where the shim is just normal committed file content, nothing special to reconcile). The caveat above is about the separate step of copying code *from this standalone pain-miner repo* into `/opt/lai-research` — that's a manual merge, not a `git pull`, and still needs the shim re-applied by hand every time.
 
 ---
 
