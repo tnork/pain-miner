@@ -4,8 +4,10 @@
 #
 # All times UTC. In EDT (UTC-4): subtract 4h. In EST (UTC-5): subtract 5h.
 
-# Discovery — 4x/day Mon-Sat (10 AM, 1 PM, 4 PM, 7 PM ET = 14, 17, 20, 23 UTC EDT)
-0 14,17,20,23 * * 1-6 cd /opt/pain-miner && /opt/pain-miner/venv/bin/python3 scripts/pain_miner.py --mode discover >> /var/log/pain-miner.log 2>&1
+# Discovery — 3x/day Mon-Sat (9:02 AM, 1 PM, 6 PM ET = 13:02, 17:00, 22:00 UTC EDT)
+2 13 * * 1-6 cd /opt/pain-miner && /opt/pain-miner/venv/bin/python3 scripts/pain_miner.py --mode discover >> /var/log/pain-miner.log 2>&1
+0 17 * * 1-6 cd /opt/pain-miner && /opt/pain-miner/venv/bin/python3 scripts/pain_miner.py --mode discover >> /var/log/pain-miner.log 2>&1
+0 22 * * 1-6 cd /opt/pain-miner && /opt/pain-miner/venv/bin/python3 scripts/pain_miner.py --mode discover >> /var/log/pain-miner.log 2>&1
 
 # Archive sweep — daily 11 PM ET (3:00 UTC)
 0 3 * * * cd /opt/pain-miner && /opt/pain-miner/venv/bin/python3 scripts/pain_miner.py --mode archive >> /var/log/pain-miner.log 2>&1

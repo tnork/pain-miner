@@ -94,6 +94,8 @@ ALLOWED_CATEGORIES = [
     "clinical-documentation",
     "pharmaceutical-documentation",
     "scientific-literature",
+    "insurance-doc",
+    "logistics-doc",
 ]
 CATEGORY_DEFINITIONS = textwrap.dedent("""
     - OCR                          — basic optical character recognition pain (accuracy, handwriting, multi-language)
@@ -110,6 +112,8 @@ CATEGORY_DEFINITIONS = textwrap.dedent("""
     - clinical-documentation       — patient records, charting, EHR notes, clinical operations
     - pharmaceutical-documentation — drug regulatory filings, clinical trial docs, drug labels, pharma SOPs
     - scientific-literature        — research papers, citations, PDF extraction for science/academia
+    - insurance-doc                — P&C / life / annuity insurance — ACORD forms, loss runs, FNOL, claims packets, underwriting
+    - logistics-doc                — logistics & transportation — freight/rail records, supply chain, warehousing, fleet/aerospace docs
 """).strip()
 
 
@@ -129,24 +133,62 @@ _ADE_FOCUS_BLOCK = textwrap.dedent("""
     HIGH-VALUE document types — call these out aggressively, especially when
     practitioners describe accuracy / structure / cross-reference pain:
 
-    - Healthcare clinical:
+    - Healthcare clinical (payer / RCM):
       • Lab reports (multi-section, embedded charts, reference ranges, footnotes)
-      • Prior authorization packets (multi-page form bundles, faxed pages,
-        evidence attachments, mixed handwritten/typed)
-      • Patient referrals (multi-form bundles, clinical notes, mixed
-        handwriting + print, stamps/signatures)
-      • Discharge summaries, operative notes, pathology reports
-      • Insurance EOBs, claims forms (CMS-1500, UB-04), denial letters
+      • Prior authorization packets — clinical criteria, diagnosis codes,
+        physician attestations arriving as mixed PDFs; payer policy PDFs that
+        must be split by section
+      • Patient referrals (1,000-page mixed PDFs: medical records,
+        authorizations, legal docs, mixed handwriting + print, stamps/signatures)
+      • Discharge summaries, operative notes
+      • EOBs, prior auth requests/approvals, denial letters, coverage
+        verification docs, claims forms (CMS-1500, UB-04)
+    - Healthcare clinical (provider / diagnostics):
+      • Requisition forms (patient demographics, ordering physician + NPI,
+        ICD-10 codes, tests ordered, insurance/billing info, clinical history)
+      • Pathology reports (gross/microscopic description, TNM/Gleason staging,
+        IHC panel result tables, CAP synoptic cancer protocol templates)
+      • NGS / molecular reports (variant tables: gene, nucleotide/amino acid
+        change, VAF, classification, clinical significance, QC metrics)
+      • Genetics / hereditary panel reports (variant classification tables,
+        family history pedigree text, insurance coverage determination forms)
     - Healthcare scientific / pharma:
       • Scientific literature (figures + tables + equations + supplementary data,
         multi-column layouts, references)
       • Clinical trial protocols, IRB submissions, drug labels, regulatory filings
+      • CRFs (case report forms), consent forms, site reports across global trials
+        (varied formats, languages, handwriting)
+      • Batch records, stability data, analytical reports validated against
+        dossier templates pre-FDA/EMA filing (often still on paper)
     - Financial / investor-grade:
+      • Appraisals — commercial + consumer lending, 200–400 page reports with
+        200–300 fields for compliance/credit-risk decisioning
+      • Loan bundles / packets (multi-document combos, 10–100 docs per loan;
+        scanned/text mixed)
       • Valuations and appraisal reports (financial tables + footnotes + schedules)
-      • Investor reports / quarterly fund letters (prose + tables + charts)
-      • W-2s, 1099s, K-1s, tax forms (structured fields, multi-copy variants)
+      • Investor reports / quarterly fund letters (prose + tables + charts);
+        PE/VC board decks (80-100 pages), Investment Committee memos, GP
+        letters, capital account statements
+      • W-2s, 1099s, K-1s, tax forms (structured fields, multi-copy variants,
+        often bundled into one large scanned PDF)
       • Prospectuses, S-1s, 10-Ks (mixed prose + financials + footnotes)
-      • Bank statements, brokerage statements, loan packets
+      • Bank statements, brokerage statements, checks
+    - Insurance (P&C, life, annuity):
+      • ACORD forms, loss runs, FNOL (first notice of loss — narrative text)
+      • Claim packets mixing litigation docs, medical forms, lab results,
+        police reports, handwritten notes, Excel sheets with complex tabs, EOBs
+      • Budget/underwriting documents (dense, repetitive-formatting reports)
+      • Physician statements with handwritten notes and margin drawings
+      • Carrier documents — annuity/life insurance statements, in-force policy
+        analysis; every carrier formats differently
+    - Logistics & Transportation:
+      • Rail/freight: lease agreements, legal records, engineering drawings,
+        audit records, scanned historical records spanning decades (mixed
+        typed, handwritten, and degraded fax scans)
+      • Supply chain / warehousing: submittal sheets, packing slips, purchase
+        orders, spec sheets with dimensional tables (images + sub-diagrams)
+      • Aerospace / auto: customer POs (PDF/Word/scanned, varying quality),
+        repair manuals with diagrams, OEM equipment/maintenance manuals
     - Legal:
       • Contracts with embedded schedules / exhibits / addenda
       • Due diligence packets, litigation discovery bundles
@@ -197,7 +239,7 @@ def response_text(payload: dict[str, object]) -> str:
     if isinstance(payload.get("output_text"), str):
         return payload["output_text"]
     parts: list[str] = []
-    for item in payload.get("output", []):
+    for item in payload.get("output") or []:
         if not isinstance(item, dict):
             continue
         for content in item.get("content", []):
@@ -213,6 +255,7 @@ def response_text(payload: dict[str, object]) -> str:
 # ---------------------------------------------------------------------------
 
 _ALERT_TO = "tylerdnorkus@gmail.com"
+_SUMMARY_TO = "tyler.norkus@landing.ai,andrea.kropp@landing.ai,vish.panchal@landing.ai,miki.ilic@landing.ai"
 
 
 def _brevo_send(to_addr: str, subject: str, *, text: str | None = None, html: str | None = None) -> None:
@@ -275,7 +318,7 @@ class PainPost(BaseModel):
     summary: str
     opportunity: str = ""
     categories: list[str] = Field(default_factory=list)
-    competitors: list[str] = Field(default_factory=list)  # e.g. ["Reducto", "Unstructured"]
+    competitors: list[str] = Field(default_factory=list)  # exact strings from COMPETITOR_NAMES
 
 
 class PainPostsBatch(BaseModel):
@@ -287,7 +330,7 @@ class PainPostsBatch(BaseModel):
 # discovery pass and surfaced via the "competitors" filter chip in the UI.
 # Posts that mention competitors are NOT required to also be pain posts; they
 # can be neutral chatter, reviews, or comparison threads.
-COMPETITOR_NAMES = ["Reducto", "Unstructured"]
+COMPETITOR_NAMES = ["Reducto", "Unstructured", "UiPath", "LlamaIndex"]
 
 
 # ---------------------------------------------------------------------------
@@ -448,11 +491,12 @@ _SO_TAGS = [
 # Free-text title queries — fills the gap when SO has no recent tagged posts.
 # `intitle=` only matches the question title.
 #
-# QUOTA CONSTRAINT: anonymous Stack Exchange API is 300 requests/day/IP. The
-# fetcher does (len(_SO_TAGS) + len(_SO_INTITLE_QUERIES)) requests per cron
-# run × 8 runs/day. Keep total ≤ 35 (8 × 35 = 280/day) so we have headroom
-# for retries and the daily-summary path. Add an entry only if you remove
-# something else — or add a Stack Exchange API key (10K/day) and bump it.
+# QUOTA: STACK_EXCHANGE_KEY is a registered key (10,000 requests/day). The
+# fetcher does (len(_SO_TAGS) + len(_SO_INTITLE_QUERIES)) requests per
+# discover run × 3 runs/day (Mon-Sat). At ~40 queries/cycle that's ~120/day —
+# well under quota, plenty of headroom to add more. Without a key, the
+# anonymous limit is 300 requests/day/IP — keep total queries per cycle low
+# enough to fit that if STACK_EXCHANGE_KEY is ever unset.
 _SO_INTITLE_QUERIES = [
     # Generic — high-signal title keywords
     "OCR",
@@ -482,6 +526,12 @@ _SO_INTITLE_QUERIES = [
     "scientific paper",
     "clinical trial",
     "due diligence",
+    "ACORD form",
+    "FNOL",
+    "loss run",
+    "claims adjudication",
+    "bill of lading",
+    "packing slip",
 ]
 
 
@@ -638,7 +688,13 @@ def grok_discovery_prompt() -> str:
         - Replyable: open thread, responsive author, public platform.
 
         DISQUALIFY:
-        - Vendor marketing, sponsored posts, launch announcements.
+        - Vendor marketing, sponsored posts, launch/announcement posts — including
+          "I built X" project showcases (an open-source tool, app, or workflow
+          product the author made), even when the project is document-processing
+          related (a PDF editor, OCR app, doc-workspace tool). The author showing
+          off a thing they built is NOT the same as the author being stuck on a
+          problem. Only keep if the post is the author describing their OWN
+          current pain, not presenting a finished project.
         - Generic "what's the best OCR library?" discussions with no concrete pain.
         - Posts older than 7 days.
         - Hacker News or Stack Overflow posts (we get those elsewhere).
@@ -660,7 +716,7 @@ def grok_discovery_prompt() -> str:
               "author_handle": "u/foo | @foo | null",
               "posted_at": "ISO-8601 best-estimate timestamp",
               "summary": "2-3 sentences: what the post is about and why it's a real pain",
-              "opportunity": "1-2 sentences: how an ADE rep could helpfully reply",
+              "opportunity": "1-2 sentences: how an ADE rep could helpfully reply. Always frame the value around LandingAI ADE specifically — NEVER suggest discussing or recommending a competitor's product (Reducto, Unstructured, or others) as the solution.",
               "categories": ["exact strings from the list above"]
             }}
           ]
@@ -701,7 +757,7 @@ def _grok_call(prompt: str, *, with_search: bool = True) -> dict[str, object]:
     if not api_key:
         raise RuntimeError("XAI_API_KEY is not configured.")
     body: dict[str, object] = {
-        "model": os.getenv("XAI_MODEL", "grok-4-1-fast-reasoning"),
+        "model": os.getenv("XAI_MODEL", "grok-4.3"),
         "input": [{"role": "user", "content": prompt}],
     }
     if with_search:
@@ -771,11 +827,19 @@ def _classify_prompt(candidates: list[PainPost]) -> str:
         relevance work — your job is to ENRICH each post and only drop the
         obviously-bad ones.
 
-        DEFAULT POSTURE: KEEP. We want maximum engagement opportunities. A junior
+        DEFAULT POSTURE: KEEP posts where the author is describing a document-
+        processing PAIN or asking a technical question about it. A junior
         analyst-style "where do I start with OCR?" question is still a fine reply
         opportunity. So is a Stack Overflow question with no answer yet. Keep them.
 
-        DROP only if the post is clearly:
+        DROP if the post is clearly:
+        - A "Show HN:" or launch/announcement post where the author BUILT and is
+          PRESENTING a project, app, tool, workflow, or open-source library —
+          even if it's a document-processing tool (a PDF editor, an OCR app, a
+          doc-workspace product). These are project showcases, not pain. The
+          giveaway: the title/body describes a thing the author made and its
+          features, not a problem the author is stuck on. DROP these regardless
+          of how relevant the tool sounds.
         - Vendor marketing or self-promotion ("I built X, check it out")
         - A blog post / tutorial / announcement (not a question or pain)
         - Completely off-topic (matched the keyword in passing — e.g. "OCR" was in
@@ -783,11 +847,16 @@ def _classify_prompt(candidates: list[PainPost]) -> str:
         - Locked / deleted / not replyable
         - Not written primarily in English — drop non-English posts entirely
 
+        Ask yourself: is the author STUCK on a document-processing problem (KEEP),
+        or SHOWING OFF something they built that touches documents (DROP)?
+
         For every post you keep, fill in:
         - summary: 2-3 sentences on what the post is about and what kind of help
           the author seems to want. Use the body snippet if provided.
         - opportunity: 1-2 sentences on a concrete angle for an ADE rep's reply
-          (specific reference to the pain, not generic).
+          (specific reference to the pain, not generic). Frame the value around
+          LandingAI ADE specifically — NEVER suggest discussing or recommending
+          a competitor's product (Reducto, Unstructured, or others) as the fix.
         - categories: one or more EXACT strings from the list below.
 
         You MAY use web_search to peek at a post's body if title + body snippet
@@ -841,7 +910,7 @@ def classify_with_grok(candidates: list[PainPost]) -> PainPostsBatch:
 
 # ---------------------------------------------------------------------------
 # Competitor mention monitoring — fourth source. Surfaces posts that name
-# Reducto or Unstructured (the two doc-AI competitors we track). Lower bar
+# any of the doc-AI competitors we track (see COMPETITOR_NAMES). Lower bar
 # than pain posts; these posts can be neutral chatter, reviews, or
 # comparisons. Filed in the same pain_posts table with `competitors[]`
 # populated so the frontend "competitors" chip can isolate them.
@@ -873,9 +942,10 @@ def competitor_mentions_prompt() -> str:
           pain-post pipeline since competitor mentions are rarer).
 
         DROP only:
-        - Vendor self-promotion BY the competitor (Reducto's own marketing)
-        - Generic crypto/finance/sports posts that happen to use the word
-          "Unstructured" or "Reducto" out of context
+        - Vendor self-promotion BY the competitor (e.g. Reducto's own marketing)
+        - Generic crypto/finance/sports/RPA posts that happen to use one of these
+          names out of context (e.g. "unstructured data" as a plain phrase, or
+          "UiPath" in an unrelated RPA-only automation post with no document-AI angle)
         - Locked / deleted threads
 
         For each kept post, identify which competitor(s) are mentioned. The
@@ -897,9 +967,9 @@ def competitor_mentions_prompt() -> str:
               "author_handle": "u/foo | @foo | null",
               "posted_at": "ISO-8601 best-estimate timestamp",
               "summary": "2-3 sentences: what the post says about the competitor",
-              "opportunity": "1-2 sentences: how an ADE rep could helpfully engage (often: stay out of vendor-bashing, but useful as signal)",
+              "opportunity": "1-2 sentences: how an ADE rep could helpfully engage (often: stay out of vendor-bashing, but useful as signal). If a reply is warranted, frame the value around LandingAI ADE specifically — NEVER suggest discussing or recommending a competitor's product, including the one named in this post, as the solution.",
               "categories": ["topic categories if any, else []"],
-              "competitors": ["Reducto" | "Unstructured" — must be exact strings"]
+              "competitors": ["exact strings from the competitor list above, e.g. \"Reducto\", \"Unstructured\", \"UiPath\", \"LlamaIndex\""]
             }}
           ]
         }}
@@ -960,6 +1030,22 @@ def _is_english(text: str) -> bool:
     return (non_latin / len(letters)) < 0.20
 
 
+def _normalize_posted_at(raw: str | None) -> str | None:
+    """Grok sometimes returns relative dates ("3 days ago") instead of the
+    requested ISO-8601 timestamp. `posted_at` is a `timestamptz` column in
+    Supabase — an unparseable value there rejects the ENTIRE insert batch
+    (including unrelated valid posts), so normalize non-ISO strings to None
+    rather than let them reach the DB."""
+    value = (raw or "").strip()
+    if not value:
+        return None
+    try:
+        dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return value
+    except ValueError:
+        return None
+
+
 def clean_post(post: PainPost) -> PainPost | None:
     """Coerce to allowed values; drop the post if it's unsalvageable."""
     platform = (post.platform or "").lower().strip()
@@ -1013,7 +1099,7 @@ def clean_post(post: PainPost) -> PainPost | None:
         post_url=url,
         post_title=title[:500],
         author_handle=(post.author_handle or "").strip() or None,
-        posted_at=(post.posted_at or "").strip() or None,
+        posted_at=_normalize_posted_at(post.posted_at),
         summary=summary,
         opportunity=(post.opportunity or "").strip(),
         categories=cats,
@@ -1206,7 +1292,7 @@ def run_discover(dry_run: bool = False) -> int:
         _grok_alert_parts.append(f"reddit/x discovery: {type(exc).__name__}: {exc}")
         grok_posts = []
 
-    # ---- Source 4: Competitor mention monitoring (Reducto / Unstructured) ----
+    # ---- Source 4: Competitor mention monitoring (see COMPETITOR_NAMES) ----
     # Lower bar than pain posts — neutral chatter, reviews, comparisons all count.
     # Surfaced in the UI under the "competitors" filter chip.
     print("[pain_miner] Querying Grok for competitor mentions...")
@@ -1253,13 +1339,25 @@ def run_discover(dry_run: bool = False) -> int:
     if dropped:
         print(f"[pain_miner] Dropped {dropped} posts during clean (bad URL, missing fields, no allowed category)")
 
-    # In-batch URL dedup (cross-source overlap can happen if Grok finds an HN/SO link)
-    seen_urls: set[str] = set()
+    # In-batch URL dedup (cross-source overlap can happen if Grok finds an HN/SO
+    # link, or the competitor scan finds the same URL as a regular discovery
+    # pass). Keep the first occurrence but union in competitors[] from any
+    # later duplicate so a competitor-mention post never loses its tag just
+    # because a plain discovery pass happened to surface the same URL first.
+    seen_urls: dict[str, int] = {}
     deduped: list[PainPost] = []
     for p in cleaned:
-        if p.post_url in seen_urls:
+        idx = seen_urls.get(p.post_url)
+        if idx is not None:
+            if p.competitors:
+                existing = deduped[idx]
+                merged_competitors = existing.competitors + [
+                    c for c in p.competitors if c not in existing.competitors
+                ]
+                if merged_competitors != existing.competitors:
+                    deduped[idx] = existing.model_copy(update={"competitors": merged_competitors})
             continue
-        seen_urls.add(p.post_url)
+        seen_urls[p.post_url] = len(deduped)
         deduped.append(p)
     if len(deduped) != len(cleaned):
         print(f"[pain_miner] Cross-source dedup removed {len(cleaned) - len(deduped)} duplicate URLs")
@@ -1462,8 +1560,8 @@ def run_daily_summary(window_hours: int = 24) -> int:
         print("[pain_miner] BREVO_API_KEY missing — printing summary instead of sending.")
         print(text)
         return 0
-    _brevo_send(_ALERT_TO, f"LAI Daily Pain Miner Summary — {today}", text=text, html=html)
-    print(f"[pain_miner] Sent daily summary ({len(posts)} posts) to {_ALERT_TO}.")
+    _brevo_send(_SUMMARY_TO, f"LAI Daily Pain Miner Summary — {today}", text=text, html=html)
+    print(f"[pain_miner] Sent daily summary ({len(posts)} posts) to {_SUMMARY_TO}.")
     return len(posts)
 
 
@@ -1488,7 +1586,15 @@ def run_error_digest() -> int:
     # Single-runner lock. The */15 cron can collide with itself if Brevo is
     # slow (30s timeout × N fingerprints) — without the lock the second run
     # would re-select the same alerted_at IS NULL rows and double-send.
-    lock_fp = open(_ERROR_DIGEST_LOCK, "w")
+    # O_NOFOLLOW: refuse to open the lock path if it's a symlink, so a
+    # pre-planted symlink at this fixed /tmp path can't redirect the open
+    # (and truncation) onto an arbitrary file this process can write.
+    try:
+        lock_fd = os.open(_ERROR_DIGEST_LOCK, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError as exc:
+        print(f"[pain_miner] could not open lock file {_ERROR_DIGEST_LOCK}: {exc}", file=sys.stderr)
+        return 0
+    lock_fp = os.fdopen(lock_fd, "w")
     try:
         fcntl.flock(lock_fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
@@ -1608,9 +1714,14 @@ def run_health_check() -> int:
         if p.get("competitors"):
             competitor_count += 1
 
-    # Check (a) — zero-volume days indicate cron failure
+    # Check (a) — zero-volume days indicate cron failure. Discovery only runs
+    # Mon-Sat (see deploy/crontab.example) — skip Sundays or this alarms weekly.
     today = dt.datetime.now(dt.timezone.utc).date()
-    expected_days = [(today - dt.timedelta(days=i)).isoformat() for i in range(1, 8)]
+    expected_days = [
+        (today - dt.timedelta(days=i)).isoformat()
+        for i in range(1, 8)
+        if (today - dt.timedelta(days=i)).weekday() != 6  # Sunday
+    ]
     zero_days = [d for d in expected_days if by_day.get(d, 0) == 0]
     if zero_days:
         findings.append(f"NEEDS_ATTENTION: zero-volume days: {', '.join(zero_days)} — discovery cron may be broken")
@@ -1678,23 +1789,26 @@ def run_health_check() -> int:
         downgrade("NEEDS_ATTENTION")
 
     # ---- f. frontend reachable check ----
+    # Only /config.js is nginx basic-auth-gated (it holds Supabase keys + the
+    # RPC secret); the root page is intentionally public behind its own
+    # client-side login.html gate. Check /config.js, not /, for the 401.
     frontend_status = "?"
     try:
         req = urllib.request.Request(
-            "https://painminer.muisbien.com",
+            "https://painminer.muisbien.com/config.js",
             headers={"User-Agent": "lai-painminer-health-check/1.0"},
         )
         with urllib.request.urlopen(req, timeout=15, context=https_context()) as resp:
             frontend_status = str(resp.status)
-        # 200 unauthorized would mean basic auth got removed — bad
-        findings.append(f"BROKEN: painminer.muisbien.com returned {frontend_status} (expected 401)")
+        # 200 on config.js would mean basic auth got removed — bad
+        findings.append(f"BROKEN: painminer.muisbien.com/config.js returned {frontend_status} (expected 401)")
         downgrade("BROKEN")
     except urllib.error.HTTPError as exc:
         frontend_status = str(exc.code)
         if exc.code == 401:
             pass  # expected — basic auth challenge
         else:
-            findings.append(f"BROKEN: painminer.muisbien.com returned HTTP {exc.code} (expected 401)")
+            findings.append(f"BROKEN: painminer.muisbien.com/config.js returned HTTP {exc.code} (expected 401)")
             downgrade("BROKEN")
     except Exception as exc:
         findings.append(f"BROKEN: painminer.muisbien.com unreachable: {exc}")

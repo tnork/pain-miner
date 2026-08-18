@@ -9,8 +9,11 @@
 # Generate a random password if PAINMINER_PASS is missing.
 #
 # Prerequisites:
-#   1. /opt/pain-miner/.env contains:
+#   1. /opt/pain-miner/.env contains (this script's own vars):
 #        SUPABASE_URL, SUPABASE_ANON_KEY, PAINMINER_RPC_SECRET
+#      ...plus what scripts/pain_miner.py needs at cron runtime (not read by
+#      this script, but every mode crashes without it):
+#        SUPABASE_KEY (service_role), XAI_API_KEY, BREVO_API_KEY
 #   2. Cloudflare Origin CA cert at /etc/ssl/cloudflare/origin.{crt,key}
 #      (Cloudflare → SSL/TLS → Origin Server → Create Certificate, 15-year, *.muisbien.com)
 #      OR a Let's Encrypt cert — update ssl_certificate paths in painminer-nginx.conf.
@@ -30,22 +33,38 @@ if [[ ! -f "$REPO_DIR/.env" ]]; then
     exit 1
 fi
 
-# Pull required vars from .env (line-by-line grep avoids shell metachars in other vars).
-SUPABASE_URL=$(grep -E '^SUPABASE_URL=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-)
-SUPABASE_ANON_KEY=$(grep -E '^SUPABASE_ANON_KEY=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-)
-PAINMINER_RPC_SECRET=$(grep -E '^PAINMINER_RPC_SECRET=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-)
+# Pull required vars from .env (line-by-line grep avoids shell metachars in other
+# vars). `|| true` on each: under `set -e -o pipefail`, a grep that finds no match
+# exits 1 and would otherwise abort the script right here — silently, before the
+# friendly "ERROR: ... missing" checks below ever run. Let extraction yield an
+# empty string on a miss and let those explicit checks report it properly.
+SUPABASE_URL=$(grep -E '^SUPABASE_URL=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-) || true
+SUPABASE_ANON_KEY=$(grep -E '^SUPABASE_ANON_KEY=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-) || true
+PAINMINER_RPC_SECRET=$(grep -E '^PAINMINER_RPC_SECRET=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-) || true
 
-_ENV_USER=$(grep -E '^PAINMINER_USER=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-)
-_ENV_PASS=$(grep -E '^PAINMINER_PASS=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-)
+_ENV_USER=$(grep -E '^PAINMINER_USER=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-) || true
+_ENV_PASS=$(grep -E '^PAINMINER_PASS=' "$REPO_DIR/.env" | head -1 | cut -d= -f2-) || true
 PAINMINER_USER="${PAINMINER_USER:-${_ENV_USER:-painminer}}"
-if [[ -z "${PAINMINER_PASS:-}" && -n "${_ENV_PASS:-}" ]]; then
+
+# Password precedence: explicit $PAINMINER_PASS env var > .env's PAINMINER_PASS >
+# (existing htpasswd entry left untouched) > freshly generated (first deploy only).
+# Without the htpasswd-exists branch, a re-run with PAINMINER_PASS still blank in
+# .env (the shipped .env.example default) would silently rotate the login password
+# on every "idempotent" redeploy, breaking the script's own idempotency claim.
+HTPASSWD_EXISTS=0
+[[ -f "$HTPASSWD_FILE" ]] && HTPASSWD_EXISTS=1
+
+if [[ -n "${PAINMINER_PASS:-}" ]]; then
+    PAINMINER_PASS_GENERATED=0
+elif [[ -n "${_ENV_PASS:-}" ]]; then
     PAINMINER_PASS="$_ENV_PASS"
     PAINMINER_PASS_GENERATED=0
-elif [[ -z "${PAINMINER_PASS:-}" ]]; then
+elif [[ "$HTPASSWD_EXISTS" -eq 1 ]]; then
+    PAINMINER_PASS=""
+    PAINMINER_PASS_GENERATED=0
+else
     PAINMINER_PASS=$(openssl rand -hex 8)
     PAINMINER_PASS_GENERATED=1
-else
-    PAINMINER_PASS_GENERATED=0
 fi
 
 if [[ -z "${SUPABASE_URL:-}" || -z "${SUPABASE_ANON_KEY:-}" ]]; then
@@ -115,14 +134,18 @@ chmod 644 "$SITE_DIR"/*.html "$SITE_DIR"/*.js "$SITE_DIR"/*.css 2>/dev/null || t
 chmod 644 "$SITE_DIR"/images/*.png 2>/dev/null || true
 chmod 640 "$SITE_DIR/config.js"   # RPC secret — nginx (www-data) only
 
-echo "==> Creating htpasswd"
-if [[ ! -f "$HTPASSWD_FILE" ]]; then
-    htpasswd -bc "$HTPASSWD_FILE" "$PAINMINER_USER" "$PAINMINER_PASS"
+if [[ -z "$PAINMINER_PASS" && "$HTPASSWD_EXISTS" -eq 1 ]]; then
+    echo "==> PAINMINER_PASS not set in .env — leaving existing htpasswd entry for $PAINMINER_USER unchanged"
 else
-    htpasswd -b "$HTPASSWD_FILE" "$PAINMINER_USER" "$PAINMINER_PASS"
+    echo "==> Creating htpasswd"
+    if [[ "$HTPASSWD_EXISTS" -eq 0 ]]; then
+        htpasswd -bc "$HTPASSWD_FILE" "$PAINMINER_USER" "$PAINMINER_PASS"
+    else
+        htpasswd -b "$HTPASSWD_FILE" "$PAINMINER_USER" "$PAINMINER_PASS"
+    fi
+    chown root:www-data "$HTPASSWD_FILE"
+    chmod 640 "$HTPASSWD_FILE"
 fi
-chown root:www-data "$HTPASSWD_FILE"
-chmod 640 "$HTPASSWD_FILE"
 
 echo "==> Installing nginx server block"
 cp "$REPO_DIR/deploy/painminer-nginx.conf" "$NGINX_AVAILABLE"
@@ -140,6 +163,8 @@ echo "URL:  https://painminer.muisbien.com"
 echo "User: $PAINMINER_USER"
 if [[ "$PAINMINER_PASS_GENERATED" -eq 1 ]]; then
     echo "Pass: $PAINMINER_PASS    <-- GENERATED — save this now"
+elif [[ -z "$PAINMINER_PASS" ]]; then
+    echo "Pass: (unchanged — set PAINMINER_PASS in .env to rotate it on next deploy)"
 else
     echo "Pass: (from .env PAINMINER_PASS)"
 fi

@@ -70,7 +70,7 @@ pain_miner/
 ```bash
 # Grok discovery (xAI)
 XAI_API_KEY=xai-...
-XAI_MODEL=grok-4-1-fast-reasoning
+XAI_MODEL=grok-4.3
 
 # Supabase — service role (server-side) + anon key (frontend)
 SUPABASE_URL=https://<project-ref>.supabase.co
@@ -125,7 +125,7 @@ python3 scripts/pain_miner.py --mode discover --dry-run
 # Archive sweep — flip new posts >4 days old to 'archived'
 python3 scripts/pain_miner.py --mode archive
 
-# Daily summary email (last 24h aggregated to tylerdnorkus@gmail.com)
+# Daily summary email (last 24h aggregated to _SUMMARY_TO — the landing.ai team)
 python3 scripts/pain_miner.py --mode daily-summary
 
 # Frontend error digest — bundle new frontend errors by fingerprint, email each
@@ -163,10 +163,12 @@ Install with `crontab /opt/pain-miner/deploy/crontab.example` (or `crontab -e` t
 
 | Mode | Schedule | What it does |
 |---|---|---|
-| `discover` | 4×/day Mon–Sat (14, 17, 20, 23 UTC) | Grok web+X search → dedup → insert to Supabase |
+| `discover` | 3×/day Mon–Sat (13:02, 17:00, 22:00 UTC = 9:02 AM / 1 PM / 6 PM ET in EDT) | Grok web+X search → dedup → insert to Supabase |
 | `archive` | Daily 03:00 UTC | Flip `status='new'` posts >4 days old to `'archived'` |
-| `daily-summary` | Daily 03:30 UTC | Email last-24h digest to tylerdnorkus@gmail.com |
+| `daily-summary` | Daily 03:30 UTC | Email last-24h digest to the landing.ai team (`_SUMMARY_TO`) |
 | `error-digest` | Every 15 min | Bundle frontend errors by fingerprint → email per fingerprint |
+
+Note: the UTC values are calibrated for EDT (UTC-4). In EST (UTC-5, Nov-Mar) the actual ET run times shift one hour earlier — harmless, just cosmetic.
 
 The `error-digest` uses `fcntl.flock` to prevent overlapping runs — safe to run frequently.
 
@@ -177,9 +179,9 @@ The `error-digest` uses `fcntl.flock` to prevent overlapping runs — safe to ru
 ### 4 discovery sources per `discover` run
 
 1. **Hacker News** — Algolia API (`hn.algolia.com/api/v1/search`), free, no key. ~20 keyword queries.
-2. **Stack Overflow** — Stack Exchange API (`api.stackexchange.com/2.3`), `STACK_EXCHANGE_KEY` (10k/day). 9 tag queries + 26 `intitle` queries per run.
+2. **Stack Overflow** — Stack Exchange API (`api.stackexchange.com/2.3`), `STACK_EXCHANGE_KEY` (10k/day). 9 tag queries + 32 `intitle` queries per run.
 3. **Reddit + X via Grok** — `web_search` + `x_search` tools on `/v1/responses`. Prompt excludes HN/SO (native sources cover those).
-4. **Competitor mentions** — Separate Grok call scoped to Reducto or Unstructured mentions (14-day window, neutral chatter counts).
+4. **Competitor mentions** — Separate Grok call scoped to Reducto, Unstructured, UiPath, or LlamaIndex mentions (14-day window, neutral chatter counts). See `COMPETITOR_NAMES` in `pain_miner.py`.
 
 ### Two-pass Grok
 
@@ -222,7 +224,7 @@ All RPCs validate `p_secret` against `pain_miner_secrets` before executing.
 
 Defined in `scripts/pain_miner.py:ALLOWED_CATEGORIES` — mirrored in `web/index.html:ALLOWED_CATEGORIES` for display ordering. **Both must be updated together** when adding a new category.
 
-`OCR`, `IDP`, `NLP`, `table-extraction`, `layout-extraction`, `RPA`, `forms-automation`, `healthcare-RCM`, `legal-doc`, `financial-doc`, `prior-auth`, `clinical-documentation`, `pharmaceutical-documentation`, `scientific-literature`
+`OCR`, `IDP`, `NLP`, `table-extraction`, `layout-extraction`, `RPA`, `forms-automation`, `healthcare-RCM`, `legal-doc`, `financial-doc`, `prior-auth`, `clinical-documentation`, `pharmaceutical-documentation`, `scientific-literature`, `insurance-doc`, `logistics-doc`
 
 ---
 
@@ -230,11 +232,20 @@ Defined in `scripts/pain_miner.py:ALLOWED_CATEGORIES` — mirrored in `web/index
 
 The Grok discovery prompts steer toward posts about **visually-rich, structurally complex documents** — NOT commodity plain-text OCR:
 
-- **Healthcare clinical:** lab reports (multi-section, embedded charts, reference ranges), prior auth packets (multi-page form bundles, faxed pages, handwritten/typed mix), patient referrals, CMS-1500/UB-04 claims, EOBs, denial letters
-- **Scientific/pharma:** clinical trial protocols, drug labels, regulatory filings, scientific literature (figures + tables + equations)
-- **Financial:** valuations, investor reports, W-2s/1099s/K-1s, prospectuses/S-1s/10-Ks, bank statements, loan packets
+- **Healthcare clinical (payer/RCM):** lab reports (multi-section, embedded charts, reference ranges), prior auth packets (clinical criteria, diagnosis codes, physician attestations, payer policy PDFs split by section), 1,000-page mixed patient referral bundles, CMS-1500/UB-04 claims, EOBs, denial letters
+- **Healthcare clinical (provider/diagnostics):** requisition forms, pathology reports (TNM/Gleason staging, IHC panels, CAP synoptic templates), NGS/molecular variant reports, genetics/hereditary panel reports
+- **Scientific/pharma:** clinical trial protocols, CRFs/consent forms/site reports, drug labels, regulatory filings, batch/stability records, scientific literature (figures + tables + equations)
+- **Financial:** appraisals (lending, 200-400pg), loan bundles (multi-doc packets), valuations, PE/VC board decks + IC memos + GP letters, W-2s/1099s/K-1s, prospectuses/S-1s/10-Ks, bank statements, checks
+- **Insurance (P&C, life, annuity):** ACORD forms, loss runs, FNOL narratives, claim packets (litigation docs, medical forms, lab results, police reports, handwritten notes), physician statements, carrier/annuity statements
+- **Logistics & Transportation:** rail/freight lease agreements + engineering drawings + scanned historical archives, supply-chain submittal sheets + packing slips + spec sheets, aerospace/auto customer POs + repair manuals + OEM manuals
 - **Legal:** contracts with schedules, due diligence packets, litigation discovery, title documents
 - **Cross-domain signals:** mixed layouts, handwritten annotations + stamps, tables spanning multiple pages, charts needing semantic parsing
+
+Full detail lives in `_ADE_FOCUS_BLOCK` in `pain_miner.py` — that's what's actually injected into the prompts; this list is a summary.
+
+**Reply-angle guardrail:** every prompt's `opportunity` field instruction explicitly forbids suggesting a competitor's product as the fix — even for competitor-mention posts. (Historical bug: Grok would sometimes see a post about e.g. Unstructured pricing pain and suggest "discuss Reducto value" instead of ADE. Fixed 2026-08-17 by adding an explicit NEVER-recommend-a-competitor instruction to all three `opportunity` field prompts.)
+
+**Project-launch filter:** the HN/SO classifier and Reddit/X discovery prompts both explicitly DROP "Show HN"-style posts where the author is presenting something they built (a PDF editor, an OCR app, a doc workspace) rather than describing their own pain. Fixed 2026-08-17 — these were slipping through under the old "vendor marketing" wording since a solo dev's project showcase isn't marketing in the traditional sense.
 
 ---
 
@@ -284,7 +295,7 @@ Product code in observability: `PM`.
 - **Cloudflare SSL mode** — the nginx conf requires a Cloudflare Origin CA cert (Full/strict mode). If you switch to Let's Encrypt, update the `ssl_certificate` paths in `deploy/painminer-nginx.conf`.
 - **`SUPABASE_ANON_KEY` is different from `SUPABASE_KEY`** — the anon key is public-by-design and used by the browser. The service role key (`SUPABASE_KEY`) must never reach the browser.
 - **Stack Exchange key quota** — 10,000 requests/day. Without a key the anonymous limit is 300/day per IP. The script reads `quota_remaining` from each response and bails at 5 left.
-- **Grok `posted_at` non-ISO values** — Grok sometimes returns `"3 days ago"` for `posted_at`. The script validates before writing to Supabase and stores NULL rather than retrying forever.
+- **Grok `posted_at` non-ISO values** — Grok sometimes returns `"3 days ago"` for `posted_at`. `clean_post()` (`_normalize_posted_at`) validates it parses as ISO-8601 before writing to Supabase and stores NULL otherwise — an unparseable string in a `timestamptz` column would otherwise reject the ENTIRE insert batch, silently dropping every other valid post in that run.
 - **`--dry-run` must skip all API calls** — dry-run is for env validation + Supabase connectivity only. No Grok calls. This is enforced — the weekly smoke test will timeout in 120s if an API call slips in.
 - **PostgREST NULL-status pattern** — never use `.not_.in_(col, [...])` when rows can have NULL in that column. SQL `NULL NOT IN (...)` evaluates to NULL, silently dropping rows. Use `.or_("status.not.in.(x,y),status.is.null")` instead.
 
@@ -293,7 +304,7 @@ Product code in observability: `PM`.
 ## Git remote
 
 ```bash
-cd /Users/tylernorkus/Desktop/pain_miner
-git remote add origin git@github.com:tnork/pain-miner.git
-git push -u origin main
+cd /Users/tnork/Desktop/pain-miner
+git remote -v   # origin → https://github.com/tnork/pain-miner.git
+git push origin main
 ```

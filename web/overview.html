@@ -620,8 +620,9 @@
           Pain Miner is an engagement-triage queue that surfaces live practitioner
           pain across Reddit, Hacker News, Stack Overflow, X, and competitor chatter — tuned to the document
           types where LandingAI ADE actually wins: lab reports, prior auth packets, scientific literature,
-          patient referrals, 10-Ks, prospectuses, valuations, W-2s, due diligence packets, and other documents
-          where commodity OCR and generic LLMs break down.
+          patient referrals, 10-Ks, prospectuses, valuations, W-2s, insurance claims packets, freight and
+          logistics records, due diligence packets, and other documents where commodity OCR and generic
+          LLMs break down.
         </p>
         <div class="hero-ctas">
           <a class="cta-btn cta-primary" href="index.html">Open triage queue</a>
@@ -631,7 +632,7 @@
       <div class="glance-card">
         <div class="glance-header">
           <span class="glance-label">System at a glance</span>
-          <span class="live-badge">4×/day Mon–Sat</span>
+          <span class="live-badge">3×/day Mon–Sat</span>
         </div>
         <div class="glance-steps">
           <div class="glance-step">
@@ -651,7 +652,7 @@
           </div>
           <div class="glance-step">
             <span class="step-num">04</span>
-            <div class="step-body"><strong>Competitor Monitor</strong><span>Reducto + Unstructured mentions · 14-day window</span></div>
+            <div class="step-body"><strong>Competitor Monitor</strong><span>Reducto, Unstructured, UiPath, LlamaIndex mentions · 14-day window</span></div>
             <span class="step-badge">monitor</span>
           </div>
           <div class="glance-step">
@@ -710,7 +711,7 @@
           </div>
           <div class="pm-arch-node-label">Reddit + X</div>
           <div class="pm-arch-node-sub">Grok web + x_search<br>ADE doc focus</div>
-          <div class="pm-arch-node-cost">4×/day Mon–Sat · pain posts</div>
+          <div class="pm-arch-node-cost">3×/day Mon–Sat · pain posts</div>
         </div>
 
         <div class="pm-arch-node">
@@ -719,7 +720,7 @@
             <div class="pm-arch-node-num">04</div>
           </div>
           <div class="pm-arch-node-label">Competitor Monitor</div>
-          <div class="pm-arch-node-sub">Reducto + Unstructured<br>mentions</div>
+          <div class="pm-arch-node-sub">Reducto, Unstructured,<br>UiPath, LlamaIndex</div>
           <div class="pm-arch-node-cost">14-day window</div>
         </div>
 
@@ -765,7 +766,7 @@
     </div>
     <div class="arch-grid">
       <article class="arch-step" data-step="01"><h3>Native intake</h3><p>Algolia pulls Hacker News keyword hits and the Stack Exchange API pulls Stack Overflow tag and <code>intitle</code> matches with no LLM needed for initial retrieval.</p></article>
-      <article class="arch-step" data-step="02"><h3>Grok discovery</h3><p>Separate Grok calls handle Reddit/X pain discovery and competitor mentions for Reducto and Unstructured. Native HN/SO candidates also pass through a Grok classifier for summary, reply angle, and categories. Both passes are steered by an ADE focus block that prioritizes visually-rich, structurally complex documents.</p></article>
+      <article class="arch-step" data-step="02"><h3>Grok discovery</h3><p>Separate Grok calls handle Reddit/X pain discovery and competitor mentions for Reducto, Unstructured, UiPath, and LlamaIndex. Native HN/SO candidates also pass through a Grok classifier for summary, reply angle, and categories. Both passes are steered by an ADE focus block that prioritizes visually-rich, structurally complex documents.</p></article>
       <article class="arch-step" data-step="03"><h3>Queue storage</h3><p>Qualified posts land in <code>pain_posts</code> with <code>status</code>, <code>categories[]</code>, <code>opportunity</code>, and optional <code>competitors[]</code>. Duplicate URLs are merged rather than reinserted.</p></article>
       <article class="arch-step" data-step="04"><h3>Human triage + cleanup</h3><p>The frontend lets a human reply or delete. Untouched <code>new</code> posts older than 4 days are auto-archived nightly, then rolled into reports and the daily summary email.</p></article>
     </div>
@@ -780,22 +781,40 @@
     </div>
     <div class="api-grid">
       <article class="section-card">
-        <small>healthcare clinical</small>
-        <h3>Clinical documents</h3>
-        <p>Lab reports (multi-section, embedded charts, reference ranges), prior authorization packets (multi-page form bundles, faxed pages, evidence attachments, mixed handwritten + typed), patient referrals, discharge summaries, operative notes, pathology reports, CMS-1500 / UB-04 claims, EOBs, denial letters.</p>
+        <small>healthcare payer / RCM</small>
+        <h3>Clinical &amp; payer documents</h3>
+        <p>Lab reports (multi-section, embedded charts, reference ranges), prior auth packets (clinical criteria, diagnosis codes, physician attestations, payer policy PDFs split by section), 1,000-page mixed patient referral bundles, discharge summaries, operative notes, CMS-1500 / UB-04 claims, EOBs, denial letters, coverage verification docs.</p>
         <div class="chip-row"><span class="mini-chip">lab reports</span><span class="mini-chip">prior auth</span><span class="mini-chip">patient referrals</span><span class="mini-chip">EOBs</span></div>
+      </article>
+      <article class="section-card">
+        <small>diagnostics / provider</small>
+        <h3>Pathology &amp; molecular reports</h3>
+        <p>Requisition forms (demographics, ordering physician + NPI, ICD-10, tests ordered), pathology reports with TNM/Gleason staging and CAP synoptic templates, NGS/molecular variant tables, and hereditary panel reports with family history pedigrees and insurance coverage determination forms.</p>
+        <div class="chip-row"><span class="mini-chip">pathology</span><span class="mini-chip">NGS / variant tables</span><span class="mini-chip">requisition forms</span><span class="mini-chip">genetics panels</span></div>
       </article>
       <article class="section-card">
         <small>scientific + pharma</small>
         <h3>Scientific literature</h3>
-        <p>Research papers with figures + tables + equations + supplementary data + multi-column layouts + references. Clinical trial protocols, IRB submissions, drug labels, regulatory filings — anywhere the page structure carries as much meaning as the prose.</p>
+        <p>Research papers with figures + tables + equations + supplementary data + multi-column layouts + references. Clinical trial CRFs, consent forms, site reports, IRB submissions, drug labels, batch/stability records validated against regulatory dossier templates.</p>
         <div class="chip-row"><span class="mini-chip">research papers</span><span class="mini-chip">clinical trials</span><span class="mini-chip">drug labels</span><span class="mini-chip">regulatory</span></div>
       </article>
       <article class="section-card">
         <small>financial + investor-grade</small>
         <h3>Financial documents</h3>
-        <p>Valuations and appraisal reports (financial tables + footnotes + schedules), investor reports / quarterly fund letters, W-2s / 1099s / K-1s, prospectuses / S-1s / 10-Ks (mixed prose + financials + footnotes), bank statements, brokerage statements, loan packets.</p>
-        <div class="chip-row"><span class="mini-chip">valuations</span><span class="mini-chip">10-Ks</span><span class="mini-chip">W-2s</span><span class="mini-chip">prospectuses</span><span class="mini-chip">investor reports</span></div>
+        <p>Appraisals (200-400 page lending reports), loan bundles (10-100 docs/loan), valuations, PE/VC board decks and IC memos, GP letters, capital account statements, W-2s / 1099s / K-1s, prospectuses / S-1s / 10-Ks, bank statements, checks.</p>
+        <div class="chip-row"><span class="mini-chip">appraisals</span><span class="mini-chip">loan packets</span><span class="mini-chip">10-Ks</span><span class="mini-chip">W-2s</span><span class="mini-chip">IC memos</span></div>
+      </article>
+      <article class="section-card">
+        <small>P&amp;C, life, annuity</small>
+        <h3>Insurance documents</h3>
+        <p>ACORD forms, loss runs, FNOL narratives, claim packets mixing litigation docs, medical forms, lab results, police reports, and handwritten notes. Physician statements with handwriting and margin drawings, underwriting samples, carrier annuity/life statements.</p>
+        <div class="chip-row"><span class="mini-chip">ACORD forms</span><span class="mini-chip">FNOL</span><span class="mini-chip">loss runs</span><span class="mini-chip">claim packets</span></div>
+      </article>
+      <article class="section-card">
+        <small>logistics + transportation</small>
+        <h3>Logistics documents</h3>
+        <p>Rail/freight lease agreements, engineering drawings, and decades-old scanned archives; supply-chain submittal sheets, packing slips, and dimensional spec sheets; aerospace/auto customer POs, repair manuals, and OEM equipment/maintenance manuals.</p>
+        <div class="chip-row"><span class="mini-chip">lease agreements</span><span class="mini-chip">packing slips</span><span class="mini-chip">spec sheets</span><span class="mini-chip">OEM manuals</span></div>
       </article>
       <article class="section-card">
         <small>cross-domain "messy" features</small>
@@ -835,13 +854,13 @@
       </article>
       <article class="section-card">
         <div class="api-top"><div><h3>Stack Exchange</h3><div class="api-provider">stack overflow search</div></div><span class="role-badge">so discovery</span></div>
-        <p>Queries Stack Overflow via the Stack Exchange API using 9 tag filters and 26 <code>intitle</code> text queries per cycle — 35 calls total, well under the 300/day anonymous quota. High-precision pre-filter means fewer false positives than open-text search.</p>
-        <div class="chip-row"><span class="mini-chip">anonymous quota</span><span class="mini-chip">35 queries/cycle</span><span class="mini-chip">tag + intitle</span></div>
+        <p>Queries Stack Overflow via the Stack Exchange API using 9 tag filters and 32 <code>intitle</code> text queries per cycle — 41 calls total, well under the registered key's 10,000/day quota. High-precision pre-filter means fewer false positives than open-text search.</p>
+        <div class="chip-row"><span class="mini-chip">registered key</span><span class="mini-chip">41 queries/cycle</span><span class="mini-chip">tag + intitle</span></div>
       </article>
       <article class="section-card">
         <div class="api-top"><div><h3>Grok</h3><div class="api-provider">xAI — discovery + classifier</div></div><span class="role-badge">reddit / x / classify</span></div>
-        <p>Three separate passes per cycle: Reddit + X pain discovery, competitor mention monitoring (Reducto, Unstructured), and HN/SO classification into <code>{summary, opportunity, categories[]}</code>. Source-level failures are non-fatal and alert immediately via Brevo.</p>
-        <div class="chip-row"><span class="mini-chip">web_search</span><span class="mini-chip">x_search</span><span class="mini-chip">classifier pass</span><span class="mini-chip">competitor monitor</span></div>
+        <p>Three separate passes per cycle: Reddit + X pain discovery, competitor mention monitoring (Reducto, Unstructured, UiPath, LlamaIndex), and HN/SO classification into <code>{summary, opportunity, categories[]}</code>. Runs on <code>grok-4.3</code>. Source-level failures are non-fatal and alert immediately via Brevo.</p>
+        <div class="chip-row"><span class="mini-chip">grok-4.3</span><span class="mini-chip">web_search</span><span class="mini-chip">x_search</span><span class="mini-chip">competitor monitor</span></div>
       </article>
       <article class="section-card">
         <div class="api-top"><div><h3>Supabase</h3><div class="api-provider">state + RPC layer</div></div><span class="role-badge">queue state</span></div>
@@ -869,7 +888,7 @@
       </div>
     </div>
     <div class="perf-grid">
-      <article class="section-card"><small>cadence</small><h3>4× daily, Mon–Sat</h3><p>Discovery runs at 10 AM, 1 PM, 4 PM, and 7 PM ET, Monday through Saturday — staggered 1 hour after Signal Sweep to avoid xAI TPM contention on the shared API key.</p></article>
+      <article class="section-card"><small>cadence</small><h3>3× daily, Mon–Sat</h3><p>Discovery runs at 9:02 AM, 1 PM, and 6 PM ET, Monday through Saturday — spread across the workday so the triage queue refreshes without piling up unread posts between sessions.</p></article>
       <article class="section-card"><small>typical cycle</small><h3>5–10 net posts</h3><p>After source fetch, classification, dedup, and DB overlap checks, a normal production cycle lands a handful of usable cards rather than a flood of noise.</p></article>
       <article class="section-card"><small>retention</small><h3>4-day archive window</h3><p>New posts that nobody touched are flipped to <code>archived</code> at 11 PM ET, which keeps the queue focused and makes reports easier to interpret.</p></article>
       <article class="section-card"><small>frontend contract</small><h3>Reload-based freshness</h3><p>The queue loads on page visit and refreshes on browser reload. There is no auto-polling and no in-app refresh button because the cron cadence already does the heavy lifting.</p></article>

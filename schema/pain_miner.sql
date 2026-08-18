@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS pain_posts (
   summary           text NOT NULL,
   opportunity       text,                          -- 1–2 sentence engagement angle
   categories        text[] NOT NULL DEFAULT '{}',
-  competitors       text[] NOT NULL DEFAULT '{}',  -- e.g. {Reducto, Unstructured} when post mentions them
+  competitors       text[] NOT NULL DEFAULT '{}',  -- e.g. {Reducto, Unstructured, UiPath, LlamaIndex} when post mentions them
   status            text NOT NULL DEFAULT 'new',   -- new | replied | deleted | archived | completed
   discovered_at     timestamptz NOT NULL DEFAULT now(),
   status_changed_at timestamptz
