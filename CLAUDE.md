@@ -270,7 +270,9 @@ All RPCs validate `p_secret` against `pain_miner_secrets` before executing.
 
 Defined in `scripts/pain_miner.py:ALLOWED_CATEGORIES` — mirrored in `web/index.html:ALLOWED_CATEGORIES` for display ordering. **Both must be updated together** when adding a new category.
 
-`OCR`, `IDP`, `NLP`, `table-extraction`, `layout-extraction`, `RPA`, `forms-automation`, `healthcare-RCM`, `legal-doc`, `financial-doc`, `prior-auth`, `clinical-documentation`, `pharmaceutical-documentation`, `scientific-literature`, `insurance-doc`, `logistics-doc`
+`OCR`, `IDP`, `NLP`, `table-extraction`, `layout-extraction`, `RPA`, `forms-automation`, `healthcare-RCM`, `legal-doc`, `financial-doc`, `prior-auth`, `clinical-documentation`, `pharmaceutical-documentation`, `scientific-literature`, `insurance-doc`, `logistics-doc`, `ADE`
+
+Note: the `ADE` **category** (any post naming LandingAI/ADE, tagged by the classifier) is distinct from the `ade` **platform** value (source 7 — see Platforms/Architecture below). A post can be platform `ade` without category `ADE` and vice versa.
 
 ---
 

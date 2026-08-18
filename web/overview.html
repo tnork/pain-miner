@@ -365,7 +365,7 @@
   }
   .pm-arch-flow {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(9, 1fr);
     gap: 0;
     position: relative;
     z-index: 1;
@@ -395,7 +395,7 @@
       0 0 18px 6px rgba(168,85,247,0.55),
       0 0 36px 14px rgba(6,182,212,0.32);
     transform: translate(-50%, -50%);
-    animation: pm-flow-pulse 7s linear infinite;
+    animation: pm-flow-pulse 9s linear infinite;
     z-index: 3;
     pointer-events: none;
   }
@@ -429,18 +429,20 @@
       0 10px 28px rgba(124,58,237,0.3),
       inset 0 1px 0 rgba(255,255,255,0.14),
       inset 0 -2px 12px rgba(124,58,237,0.18);
-    animation: pm-stage-glow 7s ease-in-out infinite;
+    animation: pm-stage-glow 9s ease-in-out infinite;
     transition: transform 220ms ease;
   }
   .pm-arch-node-circle:hover { transform: scale(1.05); }
-  /* The pulse div is nth-child(1) inside .pm-arch-flow, so nodes are nth-child(2..8). */
+  /* The pulse div is nth-child(1) inside .pm-arch-flow, so nodes are nth-child(2..10). */
   .pm-arch-node:nth-child(2) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #6d28d9 100%); border-color: rgba(168,85,247,0.5); animation-delay: 0s; }
-  .pm-arch-node:nth-child(3) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #7c3aed 100%); border-color: rgba(168,85,247,0.5); animation-delay: -6s; }
-  .pm-arch-node:nth-child(4) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #a855f7 100%); border-color: rgba(192,38,211,0.5); animation-delay: -5s; }
-  .pm-arch-node:nth-child(5) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #c026d3 100%); border-color: rgba(217,70,239,0.5); animation-delay: -4s; }
-  .pm-arch-node:nth-child(6) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #db2777 100%); border-color: rgba(217,70,239,0.5); animation-delay: -3s; }
-  .pm-arch-node:nth-child(7) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #be185d 100%); border-color: rgba(192,38,211,0.5); animation-delay: -2s; }
-  .pm-arch-node:nth-child(8) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #0891b2 100%); border-color: rgba(34,211,238,0.55); animation-delay: -1s; }
+  .pm-arch-node:nth-child(3) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #7c3aed 100%); border-color: rgba(168,85,247,0.5); animation-delay: -8s; }
+  .pm-arch-node:nth-child(4) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #8b5cf6 100%); border-color: rgba(168,85,247,0.5); animation-delay: -7s; }
+  .pm-arch-node:nth-child(5) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #a855f7 100%); border-color: rgba(192,38,211,0.5); animation-delay: -6s; }
+  .pm-arch-node:nth-child(6) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #c026d3 100%); border-color: rgba(217,70,239,0.5); animation-delay: -5s; }
+  .pm-arch-node:nth-child(7) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #d946ef 100%); border-color: rgba(217,70,239,0.5); animation-delay: -4s; }
+  .pm-arch-node:nth-child(8) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #db2777 100%); border-color: rgba(192,38,211,0.5); animation-delay: -3s; }
+  .pm-arch-node:nth-child(9) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #be185d 100%); border-color: rgba(192,38,211,0.5); animation-delay: -2s; }
+  .pm-arch-node:nth-child(10) .pm-arch-node-circle { background: linear-gradient(135deg, var(--deep-night) 0%, #0891b2 100%); border-color: rgba(34,211,238,0.55); animation-delay: -1s; }
   @keyframes pm-stage-glow {
     0%, 14%, 100% {
       box-shadow:
@@ -507,10 +509,14 @@
     .pm-arch-node-circle { animation: none; }
     .pm-arch-flow-pulse { animation: none; opacity: 0; }
   }
-  @media (max-width: 980px) {
-    .pm-arch-flow { grid-template-columns: repeat(4, 1fr); }
+  /* 9 nodes need more room per column than the old 7-node layout, so this
+     breakpoint is deliberately higher than the shared 980px one used
+     elsewhere on the page (see .arch-grid etc.) — at 980-1180px the 100px
+     circles would otherwise overflow their column. */
+  @media (max-width: 1180px) {
+    .pm-arch-flow { grid-template-columns: repeat(5, 1fr); }
   }
-  @media (max-width: 600px) {
+  @media (max-width: 640px) {
     .pm-arch-flow { grid-template-columns: repeat(2, 1fr); }
   }
 
@@ -618,7 +624,9 @@
         <h1>Find practitioners in pain on visually-rich documents. Reply while it is still hot.</h1>
         <p>
           Pain Miner is an engagement-triage queue that surfaces live practitioner
-          pain across Reddit, Hacker News, Stack Overflow, X, and competitor chatter — tuned to the document
+          pain across Reddit, Hacker News, Stack Overflow, X, Bluesky, cloud-vendor Q&amp;A forums
+          (AWS re:Post, Microsoft Q&amp;A, Google Cloud Community), competitor chatter, and
+          LandingAI/ADE own-brand mentions — tuned to the document
           types where LandingAI ADE actually wins: lab reports, prior auth packets, scientific literature,
           patient referrals, 10-Ks, prospectuses, valuations, W-2s, insurance claims packets, freight and
           logistics records, due diligence packets, and other documents where commodity OCR and generic
@@ -642,31 +650,46 @@
           </div>
           <div class="glance-step">
             <span class="step-num">02</span>
-            <div class="step-body"><strong>SO Intake</strong><span>Stack Exchange API · 35 queries/cycle · tag + intitle</span></div>
+            <div class="step-body"><strong>SO Intake</strong><span>Stack Exchange API · 41 queries/cycle · tag + intitle</span></div>
             <span class="step-badge">native</span>
           </div>
           <div class="glance-step">
             <span class="step-num">03</span>
+            <div class="step-body"><strong>Bluesky Intake</strong><span>AT Protocol public search (api.bsky.app) · reuses HN queries · no auth</span></div>
+            <span class="step-badge">native</span>
+          </div>
+          <div class="glance-step">
+            <span class="step-num">04</span>
             <div class="step-body"><strong>Reddit + X</strong><span>Grok web_search + x_search · pain posts · ADE doc focus</span></div>
             <span class="step-badge">discovery</span>
           </div>
           <div class="glance-step">
-            <span class="step-num">04</span>
+            <span class="step-num">05</span>
             <div class="step-body"><strong>Competitor Monitor</strong><span>Reducto, Unstructured, UiPath, LlamaIndex mentions · 14-day window</span></div>
             <span class="step-badge">monitor</span>
           </div>
           <div class="glance-step">
-            <span class="step-num">05</span>
-            <div class="step-body"><strong>LLM Classifier</strong><span>Grok summarize + categorize · opportunity + reply angle</span></div>
+            <span class="step-num">06</span>
+            <div class="step-body"><strong>Vendor-Forum Monitor</strong><span>AWS re:Post, Microsoft Q&amp;A, Google Cloud Community · 14-day staleness cutoff</span></div>
+            <span class="step-badge">monitor</span>
+          </div>
+          <div class="glance-step">
+            <span class="step-num">07</span>
+            <div class="step-body"><strong>ADE Mentions</strong><span>LandingAI/ADE own-brand + comparison questions · 14-day window</span></div>
+            <span class="step-badge">monitor</span>
+          </div>
+          <div class="glance-step">
+            <span class="step-num">08</span>
+            <div class="step-body"><strong>LLM Classifier</strong><span>Grok summarize + categorize (HN/SO/Bluesky) · opportunity + reply angle</span></div>
             <span class="step-badge">classify</span>
           </div>
           <div class="glance-step">
-            <span class="step-num">06</span>
+            <span class="step-num">09</span>
             <div class="step-body"><strong>Pain Queue</strong><span>Supabase pain_posts · dedup on post_url · competitor merge</span></div>
             <span class="step-badge">queue</span>
           </div>
           <div class="glance-step">
-            <span class="step-num">07</span>
+            <span class="step-num">10</span>
             <div class="step-body"><strong>Triage UI</strong><span>painminer.muisbien.com · Reply / Archive / Delete</span></div>
             <span class="step-badge">triage</span>
           </div>
@@ -678,7 +701,7 @@
   <section class="pm-arch-pipeline">
     <div class="section-head">
       <div><h2>End-to-end pipeline</h2></div>
-      <p>Four source lanes, one LLM classifier, one queue, one triage UI. Native APIs handle HN and SO with no token cost for retrieval. Grok handles open-web and competitor discovery where structured APIs fall short.</p>
+      <p>Three native-API intake sources, four Grok discovery/monitoring passes, one classifier pass, one queue, one triage UI. Native APIs handle HN, SO, and Bluesky with no per-call token cost for retrieval. Grok handles open-web pain discovery plus competitor, vendor-forum, and ADE brand-mention monitoring where structured APIs fall short. The competitor and ADE own-brand passes are grouped into one monitor node below — same lower-bar, 14-day-window model, per <code>pain_miner.py</code>.</p>
     </div>
     <div class="pm-arch-flow-wrap">
       <div class="pm-arch-flow">
@@ -700,14 +723,24 @@
             <div class="pm-arch-node-num">02</div>
           </div>
           <div class="pm-arch-node-label">SO Intake</div>
-          <div class="pm-arch-node-sub">Stack Exchange API<br>35 queries/cycle</div>
-          <div class="pm-arch-node-cost">300/day quota · native</div>
+          <div class="pm-arch-node-sub">Stack Exchange API<br>41 queries/cycle</div>
+          <div class="pm-arch-node-cost">10k/day quota · native</div>
+        </div>
+
+        <div class="pm-arch-node">
+          <div class="pm-arch-node-circle">
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 19a4 4 0 1 1 .5-7.98A5.5 5.5 0 0 1 17 12.5 3.5 3.5 0 0 1 16.5 19H6Z"/></svg>
+            <div class="pm-arch-node-num">03</div>
+          </div>
+          <div class="pm-arch-node-label">Bluesky Intake</div>
+          <div class="pm-arch-node-sub">AT Protocol search<br>api.bsky.app</div>
+          <div class="pm-arch-node-cost">no auth · native</div>
         </div>
 
         <div class="pm-arch-node">
           <div class="pm-arch-node-circle">
             <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            <div class="pm-arch-node-num">03</div>
+            <div class="pm-arch-node-num">04</div>
           </div>
           <div class="pm-arch-node-label">Reddit + X</div>
           <div class="pm-arch-node-sub">Grok web + x_search<br>ADE doc focus</div>
@@ -716,28 +749,38 @@
 
         <div class="pm-arch-node">
           <div class="pm-arch-node-circle">
-            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-            <div class="pm-arch-node-num">04</div>
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <div class="pm-arch-node-num">05</div>
           </div>
-          <div class="pm-arch-node-label">Competitor Monitor</div>
-          <div class="pm-arch-node-sub">Reducto, Unstructured,<br>UiPath, LlamaIndex</div>
+          <div class="pm-arch-node-label">Vendor-Forum Monitor</div>
+          <div class="pm-arch-node-sub">AWS · MS · GCP Q&amp;A<br>practitioner threads</div>
+          <div class="pm-arch-node-cost">14-day staleness cutoff</div>
+        </div>
+
+        <div class="pm-arch-node">
+          <div class="pm-arch-node-circle">
+            <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <div class="pm-arch-node-num">06</div>
+          </div>
+          <div class="pm-arch-node-label">Competitor &amp; Brand Monitor</div>
+          <div class="pm-arch-node-sub">Reducto, Unstructured, UiPath,<br>LlamaIndex + LandingAI/ADE</div>
           <div class="pm-arch-node-cost">14-day window</div>
         </div>
 
         <div class="pm-arch-node">
           <div class="pm-arch-node-circle">
             <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-            <div class="pm-arch-node-num">05</div>
+            <div class="pm-arch-node-num">07</div>
           </div>
           <div class="pm-arch-node-label">LLM Classifier</div>
           <div class="pm-arch-node-sub">Grok classify<br>summary + reply angle</div>
-          <div class="pm-arch-node-cost">HN + SO posts</div>
+          <div class="pm-arch-node-cost">HN + SO + Bluesky posts</div>
         </div>
 
         <div class="pm-arch-node">
           <div class="pm-arch-node-circle">
             <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v6c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12v7c0 1.66 4.03 3 9 3s9-1.34 9-3v-7"/></svg>
-            <div class="pm-arch-node-num">06</div>
+            <div class="pm-arch-node-num">08</div>
           </div>
           <div class="pm-arch-node-label">Pain Queue</div>
           <div class="pm-arch-node-sub">Supabase pain_posts<br>dedup + competitor merge</div>
@@ -747,7 +790,7 @@
         <div class="pm-arch-node">
           <div class="pm-arch-node-circle">
             <svg class="pm-arch-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-            <div class="pm-arch-node-num">07</div>
+            <div class="pm-arch-node-num">09</div>
           </div>
           <div class="pm-arch-node-label">Triage UI</div>
           <div class="pm-arch-node-sub">Reply / Archive / Delete<br>painminer.muisbien.com</div>
@@ -761,14 +804,14 @@
     <div class="section-head">
       <div>
         <h2>Architecture</h2>
-        <p>Four source lanes feed one triage queue. Native APIs handle Hacker News and Stack Overflow, while Grok covers Reddit, X, and competitor mentions that need broader discovery and summarization.</p>
+        <p>Seven discovery sources feed one triage queue. Native APIs handle Hacker News, Stack Overflow, and Bluesky with no LLM cost on retrieval, while five separate Grok passes per cycle cover Reddit, X, competitor mentions, cloud-vendor Q&amp;A forums, LandingAI/ADE own-brand mentions, and classification of the native pool.</p>
       </div>
     </div>
     <div class="arch-grid">
-      <article class="arch-step" data-step="01"><h3>Native intake</h3><p>Algolia pulls Hacker News keyword hits and the Stack Exchange API pulls Stack Overflow tag and <code>intitle</code> matches with no LLM needed for initial retrieval.</p></article>
-      <article class="arch-step" data-step="02"><h3>Grok discovery</h3><p>Separate Grok calls handle Reddit/X pain discovery and competitor mentions for Reducto, Unstructured, UiPath, and LlamaIndex. Native HN/SO candidates also pass through a Grok classifier for summary, reply angle, and categories. Both passes are steered by an ADE focus block that prioritizes visually-rich, structurally complex documents.</p></article>
-      <article class="arch-step" data-step="03"><h3>Queue storage</h3><p>Qualified posts land in <code>pain_posts</code> with <code>status</code>, <code>categories[]</code>, <code>opportunity</code>, and optional <code>competitors[]</code>. Duplicate URLs are merged rather than reinserted.</p></article>
-      <article class="arch-step" data-step="04"><h3>Human triage + cleanup</h3><p>The frontend lets a human reply or delete. Untouched <code>new</code> posts older than 4 days are auto-archived nightly, then rolled into reports and the daily summary email.</p></article>
+      <article class="arch-step" data-step="01"><h3>Native intake</h3><p>Algolia pulls Hacker News keyword hits, the Stack Exchange API pulls Stack Overflow tag and <code>intitle</code> matches, and Bluesky's AT Protocol search (<code>api.bsky.app</code>) reuses the same keyword set — all three with no LLM needed for initial retrieval.</p></article>
+      <article class="arch-step" data-step="02"><h3>Grok discovery</h3><p>Four separate Grok discovery calls run per cycle: Reddit/X pain discovery, competitor mentions (Reducto, Unstructured, UiPath, LlamaIndex), cloud-vendor Q&amp;A forum threads (AWS re:Post, Microsoft Q&amp;A, Google Cloud Community), and LandingAI/ADE own-brand mentions. A fifth Grok pass classifies native HN/SO/Bluesky candidates into summary, reply angle, and categories. All five are steered by an ADE focus block that prioritizes visually-rich, structurally complex documents.</p></article>
+      <article class="arch-step" data-step="03"><h3>Queue storage</h3><p>Qualified posts land in <code>pain_posts</code> with <code>status</code>, <code>categories[]</code>, <code>opportunity</code>, <code>platform</code>, and optional <code>competitors[]</code>. Duplicate URLs are merged rather than reinserted.</p></article>
+      <article class="arch-step" data-step="04"><h3>Human triage + cleanup</h3><p>The frontend lets a human reply or delete. Untouched <code>new</code> posts older than 4 days are auto-archived nightly (vendor-forum posts get a separate 14-day staleness sweep), then rolled into reports and the daily summary email.</p></article>
     </div>
   </section>
 
@@ -835,7 +878,7 @@
     <div class="goal-grid">
       <article class="section-card"><small>boundary</small><h3>Not lead-gen</h3><p>No Apollo sequence enrollment, no person-to-company resolution, and no writes into <code>pg_leads</code>. This project ends at the moment a human sees a strong post and decides to reply.</p></article>
       <article class="section-card"><small>quality gate</small><h3>Keep only useful pain</h3><p>HN and SO are filtered through a classifier that defaults to keep unless content is obvious vendor marketing or off-topic. Grok returns fewer posts rather than padding with weak signal.</p></article>
-      <article class="section-card"><small>throughput</small><h3>Fast cadence, small queue</h3><p>Typical cycles insert roughly 5–15 posts before dedup and around 5–10 after dedup. The point is not volume. It is fresh, reply-worthy context.</p></article>
+      <article class="section-card"><small>throughput</small><h3>Fast cadence, small queue</h3><p>Seven discovery sources now feed each cycle, but the classifier's default-keep-unless-obviously-noise gate and dedup on <code>post_url</code> keep what lands small and curated. The point is not volume. It is fresh, reply-worthy context.</p></article>
     </div>
   </section>
 
@@ -843,7 +886,7 @@
     <div class="section-head">
       <div>
         <h2>APIs</h2>
-        <p>Six services, zero custom infrastructure. Native structured APIs handle HN and SO at no LLM cost. Grok covers the open web. Supabase holds state. Brevo delivers alerts. nginx serves the frontend.</p>
+        <p>Seven services, zero custom infrastructure. Native structured APIs handle HN, SO, and Bluesky at no LLM cost. Grok covers the open web plus competitor, vendor-forum, and ADE brand-mention monitoring. Supabase holds state. Brevo delivers alerts. nginx serves the frontend.</p>
       </div>
     </div>
     <div class="api-grid-3">
@@ -858,13 +901,18 @@
         <div class="chip-row"><span class="mini-chip">registered key</span><span class="mini-chip">41 queries/cycle</span><span class="mini-chip">tag + intitle</span></div>
       </article>
       <article class="section-card">
-        <div class="api-top"><div><h3>Grok</h3><div class="api-provider">xAI — discovery + classifier</div></div><span class="role-badge">reddit / x / classify</span></div>
-        <p>Three separate passes per cycle: Reddit + X pain discovery, competitor mention monitoring (Reducto, Unstructured, UiPath, LlamaIndex), and HN/SO classification into <code>{summary, opportunity, categories[]}</code>. Runs on <code>grok-4.3</code>. Source-level failures are non-fatal and alert immediately via Brevo.</p>
-        <div class="chip-row"><span class="mini-chip">grok-4.3</span><span class="mini-chip">web_search</span><span class="mini-chip">x_search</span><span class="mini-chip">competitor monitor</span></div>
+        <div class="api-top"><div><h3>Bluesky</h3><div class="api-provider">AT Protocol public search</div></div><span class="role-badge">bluesky discovery</span></div>
+        <p>Searches posts via the unauthenticated <code>api.bsky.app</code> host (the "public." host 403s <code>feed.searchPosts</code> outright). Reuses the same ~45 keyword queries as HN, throttled to one request per 1.5s to stay under Bluesky's un-headered burst rate limit. Skips accounts Bluesky itself labels as bots.</p>
+        <div class="chip-row"><span class="mini-chip">no auth</span><span class="mini-chip">1.5s request interval</span><span class="mini-chip">bot filtering</span></div>
+      </article>
+      <article class="section-card">
+        <div class="api-top"><div><h3>Grok</h3><div class="api-provider">xAI — discovery + classifier</div></div><span class="role-badge">reddit / x / monitor / classify</span></div>
+        <p>Five separate passes per cycle: Reddit + X pain discovery, competitor mention monitoring (Reducto, Unstructured, UiPath, LlamaIndex), cloud-vendor Q&amp;A forum monitoring (AWS re:Post, Microsoft Q&amp;A, Google Cloud Community), LandingAI/ADE own-brand mention monitoring, and HN/SO/Bluesky classification into <code>{summary, opportunity, categories[]}</code>. Runs on <code>grok-4.3</code> against <code>/v1/responses</code> with <code>web_search</code> + <code>x_search</code> tools. Source-level failures are non-fatal and alert immediately via Brevo.</p>
+        <div class="chip-row"><span class="mini-chip">grok-4.3</span><span class="mini-chip">web_search</span><span class="mini-chip">x_search</span><span class="mini-chip">5 passes/cycle</span></div>
       </article>
       <article class="section-card">
         <div class="api-top"><div><h3>Supabase</h3><div class="api-provider">state + RPC layer</div></div><span class="role-badge">queue state</span></div>
-        <p><code>pain_posts</code> stores the queue with full status history. Two secret-gated RPCs handle mutations — <code>set_pain_post_status</code> for triage actions and <code>log_painminer_error</code> for frontend error reporting. The anon key alone cannot mutate state.</p>
+        <p><code>pain_posts</code> stores the queue with full status history. Secret-gated RPCs handle reads and mutations — <code>get_active_pain_posts</code> / <code>get_archive_pain_posts</code> for the triage UI, <code>set_pain_post_status</code> for triage actions, <code>log_painminer_error</code> for frontend error reporting, and <code>get_pain_posts_for_reports</code> for the reports dashboard. The anon key alone cannot mutate state.</p>
         <div class="chip-row"><span class="mini-chip">pain_posts</span><span class="mini-chip">secret RPCs</span><span class="mini-chip">RLS</span></div>
       </article>
       <article class="section-card">
@@ -874,8 +922,8 @@
       </article>
       <article class="section-card">
         <div class="api-top"><div><h3>nginx</h3><div class="api-provider">static server + auth gate</div></div><span class="role-badge">delivery</span></div>
-        <p>Serves the static frontend behind htpasswd basic auth, with <code>/config.js</code> auth-gated separately from all other files. Cloudflare sits in front as the SSL terminator (Flexible mode — HTTP to origin). Zero build step, no Node runtime on the droplet.</p>
-        <div class="chip-row"><span class="mini-chip">htpasswd</span><span class="mini-chip">config.js gate</span><span class="mini-chip">cloudflare ssl</span></div>
+        <p>Serves the static frontend behind htpasswd basic auth, with <code>/config.js</code> auth-gated separately from all other files. Cloudflare sits in front as the DDoS/TLS layer, and the Cloudflare↔origin leg is itself encrypted with a Cloudflare Origin CA certificate under Full (strict) mode — not Flexible, so there's no unencrypted hop anywhere in the path. Zero build step, no Node runtime on the droplet.</p>
+        <div class="chip-row"><span class="mini-chip">htpasswd</span><span class="mini-chip">config.js gate</span><span class="mini-chip">cloudflare full (strict)</span><span class="mini-chip">origin CA cert</span></div>
       </article>
     </div>
   </section>
@@ -889,7 +937,7 @@
     </div>
     <div class="perf-grid">
       <article class="section-card"><small>cadence</small><h3>3× daily, Mon–Sat</h3><p>Discovery runs at 9:02 AM, 1 PM, and 6 PM ET, Monday through Saturday — spread across the workday so the triage queue refreshes without piling up unread posts between sessions.</p></article>
-      <article class="section-card"><small>typical cycle</small><h3>5–10 net posts</h3><p>After source fetch, classification, dedup, and DB overlap checks, a normal production cycle lands a handful of usable cards rather than a flood of noise.</p></article>
+      <article class="section-card"><small>typical cycle</small><h3>Small, curated net</h3><p>After source fetch, classification, dedup, and DB overlap checks across all seven sources, a normal production cycle lands a handful of usable cards rather than a flood of noise.</p></article>
       <article class="section-card"><small>retention</small><h3>4-day archive window</h3><p>New posts that nobody touched are flipped to <code>archived</code> at 11 PM ET, which keeps the queue focused and makes reports easier to interpret.</p></article>
       <article class="section-card"><small>frontend contract</small><h3>Reload-based freshness</h3><p>The queue loads on page visit and refreshes on browser reload. There is no auto-polling and no in-app refresh button because the cron cadence already does the heavy lifting.</p></article>
     </div>
@@ -910,9 +958,9 @@
           <h3>Perimeter</h3>
           <span class="role-badge">cloudflare · nginx</span>
         </div>
-        <p>Cloudflare proxies all traffic — providing DDoS mitigation and TLS termination before requests reach the origin. nginx enforces HTTP basic auth on <code>/config.js</code>, the only file that holds Supabase keys and the RPC secret. Multi-tenant deployments use per-user htpasswd entries so each team member gets their own credentials; nginx validates them separately with no shared password. Security headers prevent clickjacking, MIME-type sniffing, and unintended referrer leakage across the entire site. HTML and config files are served with <code>Cache-Control: no-store</code>.</p>
+        <p>Cloudflare proxies all traffic — providing DDoS mitigation and TLS termination at the edge. The Cloudflare↔origin leg is also encrypted, via a Cloudflare Origin CA certificate under Full (strict) mode, so there's no plaintext HTTP hop anywhere between the browser and the droplet. nginx enforces HTTP basic auth on <code>/config.js</code>, the only file that holds Supabase keys and the RPC secret. Multi-tenant deployments use per-user htpasswd entries so each team member gets their own credentials; nginx validates them separately with no shared password. Security headers prevent clickjacking, MIME-type sniffing, and unintended referrer leakage across the entire site. HTML and config files are served with <code>Cache-Control: no-store</code>.</p>
         <div class="chip-row">
-          <span class="mini-chip">Cloudflare proxy + TLS</span>
+          <span class="mini-chip">Cloudflare Full (strict) + Origin CA</span>
           <span class="mini-chip">htpasswd — per-user credentials</span>
           <span class="mini-chip">config.js auth-gated</span>
           <span class="mini-chip">X-Frame-Options: SAMEORIGIN</span>
@@ -974,7 +1022,7 @@
 </main>
 
 <div class="footer-note shell">
-  Live production system. Source: <code>scripts/pain_miner.py</code>, <code>schema/pain_miner.sql</code>, <code>web/painminer/</code>.
+  Live production system. Source: <code>scripts/pain_miner.py</code>, <code>schema/pain_miner.sql</code>, <code>web/</code>.
 </div>
 <!-- error-shim is a no-op without config.js + Supabase client (it talks to the
      log_painminer_error RPC). Load both so frontend exceptions on this page

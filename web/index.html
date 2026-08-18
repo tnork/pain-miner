@@ -70,6 +70,8 @@
       background: #fffdf9;
     }
     .chip.platform { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; }
+    .chip-count { font-size: 10.5px; font-weight: 700; opacity: 0.6; }
+    .chip.active .chip-count { opacity: 0.85; }
     .chip.active {
       background: linear-gradient(135deg, var(--indigo-night) 0%, var(--neon-purple) 55%, var(--neon-cyan) 100%);
       color: #fff;
@@ -587,8 +589,10 @@
         "RPA", "forms-automation", "healthcare-RCM", "legal-doc",
         "financial-doc", "prior-auth", "clinical-documentation",
         "pharmaceutical-documentation", "scientific-literature",
-        "insurance-doc", "logistics-doc"
+        "insurance-doc", "logistics-doc", "ADE"
       ];
+
+      const ALL_PLATFORMS = ['reddit', 'hackernews', 'stackoverflow', 'x', 'bluesky', 'vendor-forum', 'other', 'ade'];
 
       const cfg = window.PAINMINER_CONFIG || {};
       if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || !cfg.rpcSecret) {
@@ -600,7 +604,7 @@
 
       const state = {
         posts: [],
-        filterPlatforms: new Set(['reddit', 'hackernews', 'stackoverflow', 'x', 'bluesky', 'vendor-forum', 'other', 'ade']),
+        filterPlatforms: new Set(ALL_PLATFORMS),
         filterCategories: new Set(),
         filterCompetitors: false,
       };
@@ -608,19 +612,26 @@
       // -- Category chips — built dynamically after posts load --
       const catBox = document.getElementById("category-chips");
       function buildCategoryChips() {
-        const present = new Set(state.posts.flatMap(p => p.categories || []));
+        const counts = new Map();
+        for (const p of state.posts) {
+          for (const c of (p.categories || [])) counts.set(c, (counts.get(c) || 0) + 1);
+        }
         // Drop any active filters for categories no longer in the data
         for (const c of state.filterCategories) {
-          if (!present.has(c)) state.filterCategories.delete(c);
+          if (!counts.has(c)) state.filterCategories.delete(c);
         }
         catBox.innerHTML = "";
         for (const c of ALLOWED_CATEGORIES) {
-          if (!present.has(c)) continue;
+          if (!counts.has(c)) continue;
           const el = document.createElement("span");
           el.className = "chip";
           if (state.filterCategories.has(c)) el.classList.add("active");
           el.dataset.category = c;
-          el.textContent = c;
+          el.append(c, " ");
+          const countEl = document.createElement("span");
+          countEl.className = "chip-count";
+          countEl.textContent = counts.get(c);
+          el.appendChild(countEl);
           el.addEventListener("click", () => {
             if (state.filterCategories.has(c)) state.filterCategories.delete(c);
             else state.filterCategories.add(c);
@@ -632,12 +643,24 @@
       }
 
       // -- Platform chip handlers --
+      // Clicking a chip while everything is selected (the default state) isolates
+      // to just that platform. Clicking additional chips after that adds them to
+      // the selection, so the user never has to deselect every other chip by hand.
       document.querySelectorAll(".chip.platform").forEach(el => {
         el.addEventListener("click", () => {
           const p = el.dataset.platform;
-          if (state.filterPlatforms.has(p)) state.filterPlatforms.delete(p);
-          else state.filterPlatforms.add(p);
-          el.classList.toggle("active");
+          const allSelected = state.filterPlatforms.size === ALL_PLATFORMS.length;
+          if (allSelected) {
+            state.filterPlatforms = new Set([p]);
+          } else if (state.filterPlatforms.has(p)) {
+            state.filterPlatforms.delete(p);
+            if (state.filterPlatforms.size === 0) state.filterPlatforms = new Set(ALL_PLATFORMS);
+          } else {
+            state.filterPlatforms.add(p);
+          }
+          document.querySelectorAll(".chip.platform").forEach(c => {
+            c.classList.toggle("active", state.filterPlatforms.has(c.dataset.platform));
+          });
           render();
         });
       });
@@ -655,7 +678,7 @@
         state.filterCompetitors = false;
         document.querySelectorAll(".chip.active").forEach(c => c.classList.remove("active"));
         // Re-select all platform chips (restore default all-selected state)
-        ['reddit','hackernews','stackoverflow','x','bluesky','vendor-forum','other','ade'].forEach(p => {
+        ALL_PLATFORMS.forEach(p => {
           state.filterPlatforms.add(p);
           const el = document.querySelector(`.chip.platform[data-platform="${p}"]`);
           if (el) el.classList.add("active");

@@ -98,6 +98,7 @@ ALLOWED_CATEGORIES = [
     "scientific-literature",
     "insurance-doc",
     "logistics-doc",
+    "ADE",
 ]
 CATEGORY_DEFINITIONS = textwrap.dedent("""
     - OCR                          — basic optical character recognition pain (accuracy, handwriting, multi-language)
@@ -116,6 +117,7 @@ CATEGORY_DEFINITIONS = textwrap.dedent("""
     - scientific-literature        — research papers, citations, PDF extraction for science/academia
     - insurance-doc                — P&C / life / annuity insurance — ACORD forms, loss runs, FNOL, claims packets, underwriting
     - logistics-doc                — logistics & transportation — freight/rail records, supply chain, warehousing, fleet/aerospace docs
+    - ADE                          — post specifically names LandingAI / ADE (Agentic Document Extraction), including comparisons or reviews
 """).strip()
 
 
