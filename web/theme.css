@@ -85,6 +85,21 @@ a { color: inherit; }
   gap: 14px;
   min-width: 0;
 }
+/* Applied alongside .brand when the logo+wordmark should act as a "home"
+   control — a same-page anchor to index.html, or (on the archive overlay,
+   which lives inside index.html) a button that closes back to the queue. */
+.brand-link {
+  text-decoration: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: opacity 180ms ease;
+}
+.brand-link:hover { opacity: 0.82; }
 .brand-logo {
   width: clamp(48px, 4.8vw, 68px);
   height: auto;

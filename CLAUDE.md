@@ -90,6 +90,10 @@ EMAIL_FROM="Pain Miner <research@mg.muisbien.com>"
 
 # Stack Exchange API key — registered at stackapps.com (10k req/day)
 STACK_EXCHANGE_KEY=
+
+# Triage UI domain — used in the daily summary email link and the
+# health-check HTTP probe. Defaults to painminer.muisbien.com if unset.
+PAINMINER_DOMAIN=
 ```
 
 ---
