@@ -2,7 +2,7 @@
 
 Engagement-triage queue. Surfaces practitioner pain posts on Reddit / Hacker News / StackOverflow / X / Bluesky / cloud-vendor Q&A forums (AWS re:Post, Microsoft Q&A, Google Cloud Community) where someone is discussing real OCR / NLP / IDP / document-processing pain, so a human can publicly reply with a helpful suggestion. **Not lead-gen** — no CRM enrollment, no contact resolution.
 
-Extracted from the `lai-central-research-agent` monorepo on 2026-05-29 and split into this standalone repo for independent deployment and database migration.
+Extracted from the `lai-central-research-agent` monorepo on 2026-05-29 and split into this standalone repo for independent deployment and database migration. That monorepo was renamed `tnork/muisbien` on GitHub on 2026-08-18 (old `lai-central-research-agent` URLs redirect) — see **Deploy — current reality** below for why this matters.
 
 **GitHub remote:** `git@github.com:tnork/pain-miner.git` (added 2026-05-29, pushed initial commit)
 
@@ -62,6 +62,37 @@ pain_miner/
 4. If you want observability (`runs.muisbien.com` equivalent), also run `schema/pipeline_observability.sql`.
 5. Update `.env`: `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_ANON_KEY`, `PAINMINER_RPC_SECRET`.
 6. Re-deploy: `sudo bash deploy/painminer-deploy.sh`.
+
+---
+
+## Deploy — current reality (until the migration above happens)
+
+**The "Migration target" column above hasn't happened yet.** `/opt/pain-miner` does not exist on the droplet. Confirmed by hand 2026-08-18 — don't assume the `## Deploy (server)` instructions further down work as written; they describe the post-migration target state.
+
+Production actually runs `pain_miner.py` out of a **different repo**: `lai-central-research-agent` (droplet path `/opt/lai-research`), renamed `tnork/muisbien` on GitHub 2026-08-18. That copy is kept in sync with *this* standalone repo by hand, not by `git pull` — it has one deliberate, permanent divergence from this repo's `scripts/pain_miner.py`:
+
+```python
+# near the top, after the pydantic import:
+import pathlib as _pathlib  # noqa: E402
+import sys as _sys  # noqa: E402
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent.parent))
+from scripts.lib import retry as _retry_lib  # noqa: E402
+from scripts.lib import brevo as _brevo_lib  # noqa: E402
+_xai_post_with_retry = _retry_lib.xai_post_with_retry
+# ...and _brevo_send / _brevo_send_text delegate to _brevo_lib instead of
+# doing their own urllib POST — the monorepo shares one retry/Brevo
+# implementation across all its pipelines (weekly_accounts_agent.py, etc.)
+```
+
+**To ship a change from this repo to production:**
+1. Commit + push here as normal.
+2. On the droplet, take this repo's `scripts/pain_miner.py` and re-apply that shim (drop the local `_xai_post_with_retry` function body in favor of the one-line assignment; make `_brevo_send`/`_brevo_send_text` delegate to `_brevo_lib`) — **do not blindly overwrite** `/opt/lai-research/scripts/pain_miner.py`, that silently reintroduces duplicate retry/Brevo code the monorepo maintainer explicitly removed in a past sync. Diffing the two files first will show ONLY this shim as the pre-existing divergence — anything else in the diff is your real change.
+3. Copy the changed `web/*.html`/`.css` files straight across to `/opt/lai-research/web/painminer/` — these have no monorepo-specific divergence, confirmed by hand 2026-08-18.
+4. Commit + push in `/opt/lai-research` too (matching the existing sync-commit history there — search `git log --oneline -- scripts/pain_miner.py` for the pattern).
+5. Run `bash /opt/lai-research/deploy/droplet/painminer-deploy.sh` (idempotent — copies `web/painminer/*` → `/var/www/painminer/`, regenerates `config.js`, reloads nginx).
+6. No crontab change needed — cron already points at `/opt/lai-research/scripts/pain_miner.py`, so step 2 alone is what makes a code change live for the next scheduled run.
+
+**Known issue, not yet fixed:** `/opt/lai-research`'s `git remote -v` has a GitHub PAT embedded in plaintext in the origin URL. Needs rotating — not something to fix via an automated agent action, flag it for Tyler to rotate by hand in GitHub settings.
 
 ---
 
@@ -138,7 +169,9 @@ python3 scripts/pain_miner.py --mode error-digest
 
 ---
 
-## Deploy (server)
+## Deploy (server) — target state, post-migration
+
+**This section describes deploying a standalone `/opt/pain-miner` clone — the migration target, not the current setup.** Until the migration checklist above is actually run, use "Deploy — current reality" instead; these commands assume `/opt/pain-miner` exists, which as of 2026-08-18 it does not.
 
 ```bash
 # First-time or re-deploy after pulling changes:
