@@ -9,7 +9,9 @@ time — there is no Apollo enrollment, no contact resolution.
 
 Modes:
   --mode discover  (default)  Grok web+X search → dedup → insert into Supabase
-  --mode archive              Flip status='new' rows older than 4 days to 'archived'
+  --mode archive              Flip status='new' rows older than 4 days to 'archived';
+                               also archives vendor-forum rows whose actual post
+                               date is older than 14 days
 
 Schedule (DO Droplet, all UTC; EDT shown in parens — see deploy/crontab.example):
   Discovery:  2 13 * * 1-6, 0 17 * * 1-6, 0 22 * * 1-6   (9:02a/1p/6p ET, Mon-Sat)
@@ -208,6 +210,14 @@ _ADE_FOCUS_BLOCK = textwrap.dedent("""
 """).strip()
 
 ALLOWED_PLATFORMS = {"reddit", "hackernews", "stackoverflow", "x", "bluesky", "vendor-forum", "other"}
+
+# Vendor-forum discovery has no recency window in its Grok prompt (see
+# vendor_forum_prompt() — a hard date filter there reliably returns zero
+# results on these low-volume archive sites). That means Grok can surface
+# genuinely stale threads; this ceiling drops them post-hoc, both at
+# ingestion (clean_post) and via the recurring archive sweep (archive_old),
+# instead of constraining the search itself.
+_VENDOR_FORUM_MAX_AGE_DAYS = 14
 
 # ---------------------------------------------------------------------------
 # Helpers (mirrors weekly_accounts_agent.py for consistency)
@@ -1287,12 +1297,18 @@ def clean_post(post: PainPost) -> PainPost | None:
     if not summary:
         return None
 
+    posted_at = _normalize_posted_at(post.posted_at)
+    if platform == "vendor-forum" and posted_at is not None:
+        posted_dt = dt.datetime.fromisoformat(posted_at.replace("Z", "+00:00"))
+        if posted_dt < dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=_VENDOR_FORUM_MAX_AGE_DAYS):
+            return None
+
     return PainPost(
         platform=platform,
         post_url=url,
         post_title=title[:500],
         author_handle=(post.author_handle or "").strip() or None,
-        posted_at=_normalize_posted_at(post.posted_at),
+        posted_at=posted_at,
         summary=summary,
         opportunity=(post.opportunity or "").strip(),
         categories=cats,
@@ -1403,13 +1419,31 @@ def insert_posts(sb, posts: list[PainPost]) -> int:
 
 
 def archive_old(sb, days: int = 4) -> int:
-    """Flip status='new' rows older than `days` to 'archived'."""
+    """Flip status='new' rows older than `days` (by discovered_at) to 'archived'."""
     cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat()
     resp = (
         sb.table("pain_posts")
         .update({"status": "archived", "status_changed_at": dt.datetime.now(dt.timezone.utc).isoformat()})
         .eq("status", "new")
         .lt("discovered_at", cutoff)
+        .execute()
+    )
+    return len(resp.data or [])
+
+
+def archive_stale_vendor_forum(sb, days: int = _VENDOR_FORUM_MAX_AGE_DAYS) -> int:
+    """Flip status='new' vendor-forum rows whose actual post date (`posted_at`)
+    is older than `days` to 'archived' — independent of `archive_old`'s
+    discovered_at-based sweep, since vendor-forum posts can sit fresh in the
+    queue (recently discovered) while the underlying thread itself is old.
+    Rows with posted_at NULL are left alone; staleness can't be judged."""
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat()
+    resp = (
+        sb.table("pain_posts")
+        .update({"status": "archived", "status_changed_at": dt.datetime.now(dt.timezone.utc).isoformat()})
+        .eq("status", "new")
+        .eq("platform", "vendor-forum")
+        .lt("posted_at", cutoff)
         .execute()
     )
     return len(resp.data or [])
@@ -1625,7 +1659,10 @@ def run_archive() -> int:
     sb = supabase_client()
     n = archive_old(sb, days=4)
     print(f"[pain_miner] Archived {n} stale post(s) (>4 days old, status=new).")
-    return n
+    n_vendor = archive_stale_vendor_forum(sb)
+    print(f"[pain_miner] Archived {n_vendor} stale vendor-forum post(s) "
+          f"(>{_VENDOR_FORUM_MAX_AGE_DAYS} days old by posted_at, status=new).")
+    return n + n_vendor
 
 
 # ---------------------------------------------------------------------------

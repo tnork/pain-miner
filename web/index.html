@@ -707,6 +707,11 @@
           }
           return true;
         });
+        // Vendor-forum posts sort after everything else — they're evergreen
+        // Q&A archive threads, not a fresh feed, so they read as lower-priority
+        // in a mixed view. Stable sort: only reorders vendor-forum relative to
+        // non-vendor, doesn't touch relative order within each group.
+        filtered.sort((a, b) => (a.platform === "vendor-forum") - (b.platform === "vendor-forum"));
         const countEl = document.getElementById("selected-count");
         if (countEl) countEl.textContent = `${filtered.length} selected`;
         if (!filtered.length) {
