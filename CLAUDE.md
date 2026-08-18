@@ -215,7 +215,7 @@ The `error-digest` uses `fcntl.flock` to prevent overlapping runs — safe to ru
 
 ## Architecture
 
-### 6 discovery sources per `discover` run
+### 7 discovery sources per `discover` run
 
 1. **Hacker News** — Algolia API (`hn.algolia.com/api/v1/search`), free, no key. ~20 keyword queries.
 2. **Stack Overflow** — Stack Exchange API (`api.stackexchange.com/2.3`), `STACK_EXCHANGE_KEY` (10k/day). 9 tag queries + 32 `intitle` queries per run.
@@ -223,11 +223,12 @@ The `error-digest` uses `fcntl.flock` to prevent overlapping runs — safe to ru
 4. **Reddit + X via Grok** — `web_search` + `x_search` tools on `/v1/responses`. Prompt excludes HN/SO (native sources cover those).
 5. **Competitor mentions** — Separate Grok call scoped to Reducto, Unstructured, UiPath, or LlamaIndex mentions (14-day window, neutral chatter counts). See `COMPETITOR_NAMES` in `pain_miner.py`.
 6. **Cloud-vendor Q&A forums** — Separate Grok call (`discover_vendor_forum_mentions()`) scoped via `site:` filters to AWS re:Post (`repost.aws`), Microsoft Q&A (`learn.microsoft.com/en-us/answers`), and Google Cloud Community (`googlecloudcommunity.com`) — practitioners stuck directly on Textract / Azure Document Intelligence / Google Document AI. The Grok **prompt itself** deliberately has **no recency window** — these are low-volume, evergreen Q&A archives (not an ephemeral feed like Reddit/HN), and a strict day-count filter *in the search instruction* reliably returns zero even though the sites are full of on-topic pain threads (confirmed by hand 2026-08-17: unconstrained search surfaced specific, current threads like "Inconsistent table extraction with Amazon Textract" that a 14/30-day filter dropped entirely). The prompt asks Grok to prefer the last 12 months but not hard-reject older threads, and reports `posted_at` on every result. That `posted_at` is then enforced **post-hoc, in code**, not in the prompt: `clean_post()` drops any vendor-forum result whose parsed `posted_at` is older than `_VENDOR_FORUM_MAX_AGE_DAYS` (14 days) before it's ever inserted, and the recurring `archive` mode sweep (`archive_stale_vendor_forum()`) separately catches already-inserted `status='new'` vendor-forum rows that cross that same 14-day line — independent of the normal 4-day `discovered_at` sweep, since a vendor-forum row can be freshly *discovered* while the underlying thread itself is old. Rows with an unparseable/null `posted_at` are left alone in both places — staleness can't be judged, so they're kept for a human to triage. Platform value: `vendor-forum`.
+7. **LandingAI/ADE own-brand mentions** — Separate Grok call (`discover_ade_mentions()`) scoped to posts naming LandingAI/ADE directly — see `ADE_KEYWORDS` in `pain_miner.py` (`LandingAI`, `Landing AI`, `landing.ai`, `ade.landing.ai`, `Agentic Document Extraction`). Same lower-bar-than-pain-posts model as competitor mentions (neutral chatter/reviews count, 14-day window), but explicitly prioritizes head-to-head comparison questions ("is LandingAI better than DIY?", "ADE vs Textract"). `clean_post()` bypasses the normal categories-or-competitors gate for `platform == "ade"` since a pure comparison/brand-mention post often has no topic category fit. Unlike vendor-forum (whose search is hard-scoped to 3 `site:` filters, so Grok has nothing else to put in the `platform` field), this source's search is broad — Reddit/HN/SO/X are all in scope — so `run_discover()` force-sets `platform = "ade"` in code on every post this source returns rather than trusting Grok to echo the prompt's `"platform": "ade"` schema literal; without that, a category-less comparison post that Grok correctly attributes to its real origin site would silently fail the categories-or-competitors gate instead of reaching the ADE bypass. Platform value: `ade` — its own filter chip in the UI (green, after "other"), distinct from `competitors[]` since LandingAI isn't a competitor of itself.
 
 ### Two-pass Grok
 
 - **Pass 1 (classifier)** — Grok turns native HN/SO/Bluesky title-only rows into `{summary, opportunity, categories[]}`. Default posture: KEEP (drops only obvious vendor marketing / off-topic / bot cross-posts). Output post-filtered to prevent Grok inventing URLs.
-- **Pass 2 (discovery)** — Reddit/X, competitor mentions, and vendor-forum mentions each get their own Grok call. Failures are non-fatal — other sources still run.
+- **Pass 2 (discovery)** — Reddit/X, competitor mentions, vendor-forum mentions, and ADE mentions each get their own Grok call. Failures are non-fatal — other sources still run.
 
 ### Storage (Supabase)
 
@@ -275,7 +276,7 @@ Defined in `scripts/pain_miner.py:ALLOWED_CATEGORIES` — mirrored in `web/index
 
 ## Platforms
 
-`platform` is a free-text column (no DB enum/CHECK) — `pain_miner.py:ALLOWED_PLATFORMS` is the actual allowlist. Current values: `reddit`, `hackernews`, `stackoverflow`, `x`, `bluesky`, `vendor-forum`, `other`.
+`platform` is a free-text column (no DB enum/CHECK) — `pain_miner.py:ALLOWED_PLATFORMS` is the actual allowlist. Current values: `reddit`, `hackernews`, `stackoverflow`, `x`, `bluesky`, `vendor-forum`, `other`, `ade`.
 
 Adding a new platform value touches **more places than it looks like**, and `web/index.html` in particular has two easy-to-miss ones — CSS/chip markup can look completely correct while the JS filter state silently drops every post of the new platform (hit this exactly, 2026-08-17, when Bluesky/vendor-forum posts rendered zero cards despite the RPC returning them fine):
 

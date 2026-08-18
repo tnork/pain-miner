@@ -209,7 +209,7 @@ _ADE_FOCUS_BLOCK = textwrap.dedent("""
     - Plain-text NLP unrelated to document structure
 """).strip()
 
-ALLOWED_PLATFORMS = {"reddit", "hackernews", "stackoverflow", "x", "bluesky", "vendor-forum", "other"}
+ALLOWED_PLATFORMS = {"reddit", "hackernews", "stackoverflow", "x", "bluesky", "vendor-forum", "other", "ade"}
 
 # Vendor-forum discovery has no recency window in its Grok prompt (see
 # vendor_forum_prompt() — a hard date filter there reliably returns zero
@@ -346,6 +346,15 @@ class PainPostsBatch(BaseModel):
 # Posts that mention competitors are NOT required to also be pain posts; they
 # can be neutral chatter, reviews, or comparison threads.
 COMPETITOR_NAMES = ["Reducto", "Unstructured", "UiPath", "LlamaIndex"]
+
+# Own-brand monitoring — LandingAI / ADE mentioned by name, including
+# head-to-head comparison questions ("is LandingAI better than DIY?"). Looked
+# up in a sixth discovery pass (see discover_ade_mentions) and force-tagged
+# with the dedicated "ade" platform value (green chip in the UI) in code
+# (run_discover), regardless of which site Grok actually found the post on —
+# unlike vendor-forum, this source's search isn't restricted to a few site:
+# filters, so it can't rely on Grok reliably echoing the platform literal.
+ADE_KEYWORDS = ["LandingAI", "Landing AI", "landing.ai", "ade.landing.ai", "Agentic Document Extraction"]
 
 
 # ---------------------------------------------------------------------------
@@ -1180,6 +1189,89 @@ def discover_vendor_forum_mentions() -> PainPostsBatch:
 
 
 # ---------------------------------------------------------------------------
+# LandingAI / ADE own-brand mention monitoring — sixth source. Mirrors
+# discover_competitor_mentions but scoped to our own name (see ADE_KEYWORDS)
+# instead of a competitor's. Surfaces posts where someone is asking about,
+# evaluating, or directly comparing LandingAI/ADE — including head-to-head
+# questions like "is LandingAI better than DIY?" — so the team can jump into
+# the conversation with a grounded answer. Filed under the dedicated "ade"
+# platform value (not the site it was found on) so it gets its own filter
+# chip — run_discover() force-sets platform="ade" on every post this source
+# returns; the "platform": "ade" literal below is just for Grok's own
+# consistency and isn't load-bearing.
+# ---------------------------------------------------------------------------
+
+def ade_mentions_prompt() -> str:
+    today = dt.date.today().isoformat()
+    keywords_list = ", ".join(f'"{k}"' for k in ADE_KEYWORDS)
+    return textwrap.dedent(f"""
+        Today's date is {today}.
+
+        You are scouting Reddit, Hacker News, Stack Overflow, X (Twitter), and
+        developer forums for posts that **mention LandingAI or its Agentic
+        Document Extraction (ADE) product by name**. Match any of: {keywords_list}.
+
+        These posts will appear under a dedicated "ADE" filter on a triage UI
+        so the team can see what people are saying about LandingAI/ADE and
+        jump into the conversation. They do NOT need to be pain posts. They
+        can be:
+        - Head-to-head comparison questions — e.g. "Is LandingAI better than
+          building this in-house?", "ADE vs Textract/Unstructured/Reducto",
+          "should I use LandingAI or DIY this?" (HIGH PRIORITY — these are the
+          best reply opportunities)
+        - Someone evaluating or asking for opinions on LandingAI/ADE
+        - Reviews or experience reports (positive or negative — negative ones
+          are especially valuable to see)
+        - Neutral mentions in tooling/stack discussions
+
+        SEARCH SCOPE:
+        - Use web_search and x_search broadly. Cover Reddit, HN, Stack
+          Overflow, X, dev blogs, and forums.
+        - Posts must be from the last 14 days.
+
+        DROP only:
+        - LandingAI's own official posts/marketing/job listings (self-
+          promotion by us — not useful for triage, we already know about it)
+        - False-positive keyword collisions unrelated to the company — e.g.
+          generic use of the phrase "landing page" or "landing.ai" matching
+          an unrelated domain/handle
+        - Locked / deleted threads
+
+        For each kept post, briefly note in `summary` what's actually being
+        asked or said, and whether it's a head-to-head comparison question.
+
+        TOPICS (categories — fill in if relevant, leave empty array if pure
+        brand mention/comparison chatter with no doc-AI category fit):
+        {CATEGORY_DEFINITIONS}
+
+        OUTPUT — return ONLY valid JSON, no prose:
+        {{
+          "summary": "1-sentence summary of ADE/LandingAI chatter this run",
+          "posts": [
+            {{
+              "platform": "ade",
+              "post_url": "https://...",
+              "post_title": "string",
+              "author_handle": "u/foo | @foo | null",
+              "posted_at": "ISO-8601 best-estimate timestamp",
+              "summary": "2-3 sentences: what the post says about LandingAI/ADE, and whether it's a head-to-head comparison question",
+              "opportunity": "1-2 sentences: how the team could helpfully reply — a grounded, factual answer or proof point. No hype, no overt pitch.",
+              "categories": ["topic categories if any, else []"]
+            }}
+          ]
+        }}
+
+        Return up to 15 posts. If you find none, return an empty array — this
+        is a low-volume source, a quiet run is expected and fine.
+    """).strip()
+
+
+def discover_ade_mentions() -> PainPostsBatch:
+    """Sixth source — Grok with web_search + x_search scoped to LandingAI/ADE mentions."""
+    return _parse_grok_batch(_grok_call(ade_mentions_prompt(), with_search=True))
+
+
+# ---------------------------------------------------------------------------
 # Filtering / normalization
 # ---------------------------------------------------------------------------
 
@@ -1280,10 +1372,10 @@ def clean_post(post: PainPost) -> PainPost | None:
         if key in canon and canon[key] not in comps_seen:
             comps_seen.append(canon[key])
 
-    # Allow a post through if it has EITHER a real category OR a competitor
-    # mention. Competitor-only posts (vendor chatter / comparison threads) are
-    # legit cards even if they don't fit one of the topic categories.
-    if not cats and not comps_seen:
+    # Allow a post through if it has EITHER a real category, a competitor
+    # mention, or is an ADE own-brand mention. Category-less chatter/
+    # comparison threads are still legit cards for these sources.
+    if not cats and not comps_seen and platform != "ade":
         return None
 
     title = (post.post_title or "").strip()
@@ -1555,6 +1647,29 @@ def run_discover(dry_run: bool = False) -> int:
         _grok_alert_parts.append(f"vendor-forum discovery: {type(exc).__name__}: {exc}")
         vendor_posts = []
 
+    # ---- Source 6: LandingAI/ADE own-brand mention monitoring (see ADE_KEYWORDS) ----
+    # Lower bar than pain posts — comparison questions, reviews, neutral mentions all count.
+    # Surfaced in the UI under the dedicated "ade" platform filter chip.
+    print("[pain_miner] Querying Grok for LandingAI/ADE mentions...")
+    try:
+        ade_batch = discover_ade_mentions()
+        ade_posts = list(ade_batch.posts)
+        # Force platform to "ade" in code rather than trusting Grok to follow the
+        # prompt's schema literal. Unlike vendor_forum_prompt() (hard-scoped to 3
+        # site: filters, so Grok has nothing else to put in the field), this
+        # source's search is broad — Reddit/HN/SO/X are all in scope — so Grok can
+        # legitimately report a post's true origin site instead. Every post this
+        # source returns is, by definition, an ADE mention, so it always gets the
+        # "ade" tag regardless of what Grok wrote.
+        for p in ade_posts:
+            p.platform = "ade"
+        print(f"  Grok returned {len(ade_posts)} ADE-mention posts: "
+              f"{ade_batch.summary or '(no summary)'}")
+    except Exception as exc:
+        print(f"[warn] ADE mention discovery failed: {exc}", file=sys.stderr)
+        _grok_alert_parts.append(f"ADE mentions: {type(exc).__name__}: {exc}")
+        ade_posts = []
+
     # One combined alert per run if any Grok source failed — never one per failure.
     if _grok_alert_parts:
         send_error_alert(
@@ -1570,13 +1685,14 @@ def run_discover(dry_run: bool = False) -> int:
             pass
 
     # ---- Combine sources ----
-    combined = classified_native + grok_posts + comp_posts + vendor_posts
+    combined = classified_native + grok_posts + comp_posts + vendor_posts + ade_posts
     if not combined:
         print("[pain_miner] No candidates from any source. Exiting.")
         return 0
     print(f"[pain_miner] Combined pool: {len(combined)} posts "
           f"({len(classified_native)} HN/SO/Bluesky + {len(grok_posts)} Reddit/X "
-          f"+ {len(comp_posts)} competitor mentions + {len(vendor_posts)} vendor-forum)")
+          f"+ {len(comp_posts)} competitor mentions + {len(vendor_posts)} vendor-forum "
+          f"+ {len(ade_posts)} ADE mentions)")
 
     # ---- Validate + URL-clean + drop posts missing required fields ----
     cleaned: list[PainPost] = []
@@ -1589,22 +1705,31 @@ def run_discover(dry_run: bool = False) -> int:
         print(f"[pain_miner] Dropped {dropped} posts during clean (bad URL, missing fields, no allowed category)")
 
     # In-batch URL dedup (cross-source overlap can happen if Grok finds an HN/SO
-    # link, or the competitor scan finds the same URL as a regular discovery
-    # pass). Keep the first occurrence but union in competitors[] from any
-    # later duplicate so a competitor-mention post never loses its tag just
-    # because a plain discovery pass happened to surface the same URL first.
+    # link, or the competitor/ADE scans find the same URL as a regular discovery
+    # pass). Keep the first occurrence but union in competitors[] from any later
+    # duplicate so a competitor-mention post never loses its tag just because a
+    # plain discovery pass happened to surface the same URL first. Same idea for
+    # platform="ade": ade_posts is concatenated last in `combined`, so an ADE
+    # mention that's ALSO a regular pain post (e.g. "tried LandingAI and X, still
+    # stuck on Y") would otherwise lose its "ade" tag to whichever source's
+    # occurrence came first — promote the kept post to "ade" instead of dropping it.
     seen_urls: dict[str, int] = {}
     deduped: list[PainPost] = []
     for p in cleaned:
         idx = seen_urls.get(p.post_url)
         if idx is not None:
+            existing = deduped[idx]
+            updates: dict[str, object] = {}
             if p.competitors:
-                existing = deduped[idx]
                 merged_competitors = existing.competitors + [
                     c for c in p.competitors if c not in existing.competitors
                 ]
                 if merged_competitors != existing.competitors:
-                    deduped[idx] = existing.model_copy(update={"competitors": merged_competitors})
+                    updates["competitors"] = merged_competitors
+            if p.platform == "ade" and existing.platform != "ade":
+                updates["platform"] = "ade"
+            if updates:
+                deduped[idx] = existing.model_copy(update=updates)
             continue
         seen_urls[p.post_url] = len(deduped)
         deduped.append(p)
@@ -1684,6 +1809,7 @@ _PLATFORM_LABEL = {
     "reddit": "Reddit", "hackernews": "Hacker News",
     "stackoverflow": "Stack Overflow", "x": "X", "bluesky": "Bluesky",
     "vendor-forum": "Vendor Forum (AWS/MS/GCP)", "other": "Other",
+    "ade": "ADE (LandingAI mentions)",
 }
 
 

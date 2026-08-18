@@ -125,6 +125,7 @@
     .platform-badge.bluesky { background: rgba(0, 133, 255, 0.12); color: var(--bluesky); }
     .platform-badge.vendor-forum { background: rgba(147, 51, 234, 0.12); color: var(--vendor-forum); }
     .platform-badge.other { background: rgba(140, 140, 140, 0.12); color: var(--other); }
+    .platform-badge.ade { background: rgba(90, 143, 46, 0.14); color: var(--ade); }
     .post-date { color: var(--muted); font-size: 11px; }
     .card h3 {
       font-size: 22px; line-height: 1.08; margin-top: 4px;
@@ -479,6 +480,7 @@
         <span class="chip platform active" data-platform="bluesky">bsky</span>
         <span class="chip platform active" data-platform="vendor-forum">vendor</span>
         <span class="chip platform active" data-platform="other">other</span>
+        <span class="chip platform active" data-platform="ade" title="Posts mentioning LandingAI / ADE by name, including head-to-head comparisons">ADE</span>
       </div>
       <div class="category-section">
         <span class="controls-label">category:</span>
@@ -598,7 +600,7 @@
 
       const state = {
         posts: [],
-        filterPlatforms: new Set(['reddit', 'hackernews', 'stackoverflow', 'x', 'bluesky', 'vendor-forum', 'other']),
+        filterPlatforms: new Set(['reddit', 'hackernews', 'stackoverflow', 'x', 'bluesky', 'vendor-forum', 'other', 'ade']),
         filterCategories: new Set(),
         filterCompetitors: false,
       };
@@ -653,7 +655,7 @@
         state.filterCompetitors = false;
         document.querySelectorAll(".chip.active").forEach(c => c.classList.remove("active"));
         // Re-select all platform chips (restore default all-selected state)
-        ['reddit','hackernews','stackoverflow','x','bluesky','vendor-forum','other'].forEach(p => {
+        ['reddit','hackernews','stackoverflow','x','bluesky','vendor-forum','other','ade'].forEach(p => {
           state.filterPlatforms.add(p);
           const el = document.querySelector(`.chip.platform[data-platform="${p}"]`);
           if (el) el.classList.add("active");
@@ -934,7 +936,7 @@
       function platformLabel(p) {
         return ({
           reddit: "reddit", hackernews: "hn", stackoverflow: "so", x: "x",
-          bluesky: "bsky", "vendor-forum": "vendor", other: "other",
+          bluesky: "bsky", "vendor-forum": "vendor", other: "other", ade: "ADE",
         })[p] || p;
       }
       function fmtDate(s) {
