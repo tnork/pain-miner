@@ -1,6 +1,6 @@
 # Pain Miner — Standalone Application
 
-Engagement-triage queue. Surfaces practitioner pain posts on Reddit / Hacker News / StackOverflow / X where someone is discussing real OCR / NLP / IDP / document-processing pain, so a human can publicly reply with a helpful suggestion. **Not lead-gen** — no CRM enrollment, no contact resolution.
+Engagement-triage queue. Surfaces practitioner pain posts on Reddit / Hacker News / StackOverflow / X / Bluesky / cloud-vendor Q&A forums (AWS re:Post, Microsoft Q&A, Google Cloud Community) where someone is discussing real OCR / NLP / IDP / document-processing pain, so a human can publicly reply with a helpful suggestion. **Not lead-gen** — no CRM enrollment, no contact resolution.
 
 Extracted from the `lai-central-research-agent` monorepo on 2026-05-29 and split into this standalone repo for independent deployment and database migration.
 
@@ -180,17 +180,19 @@ The `error-digest` uses `fcntl.flock` to prevent overlapping runs — safe to ru
 
 ## Architecture
 
-### 4 discovery sources per `discover` run
+### 6 discovery sources per `discover` run
 
 1. **Hacker News** — Algolia API (`hn.algolia.com/api/v1/search`), free, no key. ~20 keyword queries.
 2. **Stack Overflow** — Stack Exchange API (`api.stackexchange.com/2.3`), `STACK_EXCHANGE_KEY` (10k/day). 9 tag queries + 32 `intitle` queries per run.
-3. **Reddit + X via Grok** — `web_search` + `x_search` tools on `/v1/responses`. Prompt excludes HN/SO (native sources cover those).
-4. **Competitor mentions** — Separate Grok call scoped to Reducto, Unstructured, UiPath, or LlamaIndex mentions (14-day window, neutral chatter counts). See `COMPETITOR_NAMES` in `pain_miner.py`.
+3. **Bluesky** — AT Protocol public search (`api.bsky.app/xrpc/app.bsky.feed.searchPosts`), free, no key. Reuses the same ~45 keyword queries as HN (`_HN_QUERIES`). **Not** `public.api.bsky.app` — that host 403s `feed.searchPosts` outright even unauthenticated; the plain `api.bsky.app` host (no "public." prefix) is the one that actually serves it. Rate-limits bursts with a bare 403 (no `Retry-After`) — `fetch_bluesky_posts()` throttles to one request per `_BSKY_REQUEST_INTERVAL` (1.5s). Skips accounts Bluesky itself labels `"bot"` (mostly Reddit/RSS mirror bots).
+4. **Reddit + X via Grok** — `web_search` + `x_search` tools on `/v1/responses`. Prompt excludes HN/SO (native sources cover those).
+5. **Competitor mentions** — Separate Grok call scoped to Reducto, Unstructured, UiPath, or LlamaIndex mentions (14-day window, neutral chatter counts). See `COMPETITOR_NAMES` in `pain_miner.py`.
+6. **Cloud-vendor Q&A forums** — Separate Grok call (`discover_vendor_forum_mentions()`) scoped via `site:` filters to AWS re:Post (`repost.aws`), Microsoft Q&A (`learn.microsoft.com/en-us/answers`), and Google Cloud Community (`googlecloudcommunity.com`) — practitioners stuck directly on Textract / Azure Document Intelligence / Google Document AI. Deliberately has **no recency window** — these are low-volume, evergreen Q&A archives (not an ephemeral feed like Reddit/HN), and a strict day-count filter reliably returns zero even though the sites are full of on-topic pain threads (confirmed by hand 2026-08-17: unconstrained search surfaced specific, current threads like "Inconsistent table extraction with Amazon Textract" that a 14/30-day filter dropped entirely). The prompt asks Grok to prefer the last 12 months but not hard-reject older threads — `posted_at` is reported so a human can judge staleness in triage. Platform value: `vendor-forum`.
 
 ### Two-pass Grok
 
-- **Pass 1 (classifier)** — Grok turns native HN/SO title-only rows into `{summary, opportunity, categories[]}`. Default posture: KEEP (drops only obvious vendor marketing / off-topic). Output post-filtered to prevent Grok inventing URLs.
-- **Pass 2 (discovery)** — Reddit/X + competitor mentions each get their own Grok call. Failures are non-fatal — other sources still run.
+- **Pass 1 (classifier)** — Grok turns native HN/SO/Bluesky title-only rows into `{summary, opportunity, categories[]}`. Default posture: KEEP (drops only obvious vendor marketing / off-topic / bot cross-posts). Output post-filtered to prevent Grok inventing URLs.
+- **Pass 2 (discovery)** — Reddit/X, competitor mentions, and vendor-forum mentions each get their own Grok call. Failures are non-fatal — other sources still run.
 
 ### Storage (Supabase)
 
@@ -232,6 +234,31 @@ Defined in `scripts/pain_miner.py:ALLOWED_CATEGORIES` — mirrored in `web/index
 
 ---
 
+## Platforms
+
+`platform` is a free-text column (no DB enum/CHECK) — `pain_miner.py:ALLOWED_PLATFORMS` is the actual allowlist. Current values: `reddit`, `hackernews`, `stackoverflow`, `x`, `bluesky`, `vendor-forum`, `other`.
+
+Adding a new platform value touches **more places than it looks like**, and `web/index.html` in particular has two easy-to-miss ones — CSS/chip markup can look completely correct while the JS filter state silently drops every post of the new platform (hit this exactly, 2026-08-17, when Bluesky/vendor-forum posts rendered zero cards despite the RPC returning them fine):
+
+| Concern | File:location |
+|---|---|
+| Allowed set | `scripts/pain_miner.py` `ALLOWED_PLATFORMS` |
+| Normalization branch (Grok variant spellings → canonical) | `scripts/pain_miner.py` `clean_post()` |
+| Daily-summary email label | `scripts/pain_miner.py` `_PLATFORM_LABEL` |
+| Health-check "silent platform" list — **only add here if the source is genuinely high-volume/expected-daily**; low-volume sources belong out of this list or they'll false-alarm on a normal quiet week | `scripts/pain_miner.py` `run_health_check()` `expected_platforms` |
+| Badge CSS | `web/index.html` `.platform-badge.*` |
+| Filter chip markup | `web/index.html` `.platform-section` |
+| **`state.filterPlatforms` default Set — easy to miss, chip HTML can look "active" while this hardcoded list silently filters the platform out of every render()** | `web/index.html` (chip-handler section, `const state = {...}`) |
+| **"clear filters" button reset list — same hardcoded-list trap, second copy** | `web/index.html` (`clear-btn` click handler) |
+| Label map (JS) | `web/index.html` `platformLabel()` |
+| CSS color var | `web/theme.css` `:root` |
+| Pill CSS | `web/reports.html` `.pill.*` |
+| Label/color maps (JS) | `web/reports.html` `PLATFORM_LABEL` / `PLATFORM_COLOR` |
+
+`reports.html`'s chart/drill-in logic is fully data-driven (no hardcoded platform list) — it needs the label/color map entries for polish but works correctly even without them.
+
+---
+
 ## ADE document focus (target pain types)
 
 The Grok discovery prompts steer toward posts about **visually-rich, structurally complex documents** — NOT commodity plain-text OCR:
@@ -250,6 +277,8 @@ Full detail lives in `_ADE_FOCUS_BLOCK` in `pain_miner.py` — that's what's act
 **Reply-angle guardrail:** every prompt's `opportunity` field instruction explicitly forbids suggesting a competitor's product as the fix — even for competitor-mention posts. (Historical bug: Grok would sometimes see a post about e.g. Unstructured pricing pain and suggest "discuss Reducto value" instead of ADE. Fixed 2026-08-17 by adding an explicit NEVER-recommend-a-competitor instruction to all three `opportunity` field prompts.)
 
 **Project-launch filter:** the HN/SO classifier and Reddit/X discovery prompts both explicitly DROP "Show HN"-style posts where the author is presenting something they built (a PDF editor, an OCR app, a doc workspace) rather than describing their own pain. Fixed 2026-08-17 — these were slipping through under the old "vendor marketing" wording since a solo dev's project showcase isn't marketing in the traditional sense.
+
+**Third-party release-discussion filter:** the HN/SO classifier now also explicitly DROPs news/discussion threads about a third party's product release or model launch (e.g. an HN thread titled "Mistral OCR 4.1" linking to a vendor's announcement) — distinct from the Show HN case since the poster isn't the builder. Fixed 2026-08-17 — the classifier was keeping these because the summary/title mentioned OCR capabilities and invited "comparisons to existing tools," which read as pain-adjacent even though no one in the post is actually stuck on a problem.
 
 ---
 
@@ -302,6 +331,8 @@ Product code in observability: `PM`.
 - **Grok `posted_at` non-ISO values** — Grok sometimes returns `"3 days ago"` for `posted_at`. `clean_post()` (`_normalize_posted_at`) validates it parses as ISO-8601 before writing to Supabase and stores NULL otherwise — an unparseable string in a `timestamptz` column would otherwise reject the ENTIRE insert batch, silently dropping every other valid post in that run.
 - **`--dry-run` must skip all API calls** — dry-run is for env validation + Supabase connectivity only. No Grok calls. This is enforced — the weekly smoke test will timeout in 120s if an API call slips in.
 - **PostgREST NULL-status pattern** — never use `.not_.in_(col, [...])` when rows can have NULL in that column. SQL `NULL NOT IN (...)` evaluates to NULL, silently dropping rows. Use `.or_("status.not.in.(x,y),status.is.null")` instead.
+- **Bluesky's "public" API host isn't actually public for search** — `public.api.bsky.app/xrpc/app.bsky.feed.searchPosts` 403s unconditionally, even fully unauthenticated (Bluesky locked that endpoint down there to deter scraping). The unauthenticated host that actually serves it is `api.bsky.app` (no "public." prefix) — confirmed by hand 2026-08-17. That host also rate-limits bursts with a bare 403 and no `Retry-After` header, which looks identical to a hard block unless you space requests out (see `_BSKY_REQUEST_INTERVAL`).
+- **Grok's `web_search` can't reliably date-filter niche/low-volume domains** — a `site:repost.aws` / `site:learn.microsoft.com/answers` / `site:googlecloudcommunity.com` search with a "last N days" instruction reliably returns zero results even though the content exists and is indexed (confirmed by hand: the same query with no date constraint immediately surfaced specific, on-topic threads). High-traffic domains (Reddit, HN, X) don't show this problem — likely a freshness-metadata gap specific to these smaller forums. Fix: don't hard-filter on recency for low-volume sources: ask for a soft preference instead and let `posted_at` (best-effort, often `null`) carry the staleness signal into triage.
 
 ---
 

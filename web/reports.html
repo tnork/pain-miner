@@ -216,6 +216,8 @@
     .pill.hackernews { background: rgba(255,123,52,0.12); color: var(--hn); }
     .pill.stackoverflow { background: rgba(244,128,36,0.12); color: var(--so); }
     .pill.x { background: rgba(29,161,242,0.12); color: var(--x); }
+    .pill.bluesky { background: rgba(0,133,255,0.12); color: var(--bluesky); }
+    .pill.vendor-forum { background: rgba(147,51,234,0.12); color: var(--vendor-forum); }
     .pill.other { background: rgba(140,140,140,0.14); color: var(--other); }
     .pill.status-new { background: rgba(15,118,110,0.10); color: var(--accent); }
     .pill.status-replied { background: rgba(124,58,237,0.10); color: var(--neon-purple-deep); }
@@ -326,11 +328,11 @@
 
     const PLATFORM_LABEL = {
       reddit: "Reddit", hackernews: "Hacker News", stackoverflow: "Stack Overflow",
-      x: "X", other: "Other",
+      x: "X", bluesky: "Bluesky", "vendor-forum": "Vendor Forum", other: "Other",
     };
     const PLATFORM_COLOR = {
       reddit: "#ff6234", hackernews: "#ff7b34", stackoverflow: "#f48024",
-      x: "#1da1f2", other: "#a8a298",
+      x: "#1da1f2", bluesky: "#0085ff", "vendor-forum": "#9333ea", other: "#a8a298",
     };
     const STATUS_LABEL = { new: "New", replied: "Replied", deleted: "Deleted", archived: "Archived", completed: "Done" };
     const STATUS_COLOR = {

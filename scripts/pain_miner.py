@@ -207,7 +207,7 @@ _ADE_FOCUS_BLOCK = textwrap.dedent("""
     - Plain-text NLP unrelated to document structure
 """).strip()
 
-ALLOWED_PLATFORMS = {"reddit", "hackernews", "stackoverflow", "x", "other"}
+ALLOWED_PLATFORMS = {"reddit", "hackernews", "stackoverflow", "x", "bluesky", "vendor-forum", "other"}
 
 # ---------------------------------------------------------------------------
 # Helpers (mirrors weekly_accounts_agent.py for consistency)
@@ -660,6 +660,89 @@ def _so_collect(item: dict, seen: set[str], out: list[PainPost]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Native Bluesky fetcher — AT Protocol public search, free, no key.
+# https://docs.bsky.app/docs/api/app-bsky-feed-search-posts
+#
+# NOTE: "public.api.bsky.app" (the documented "public" host) 403s on
+# feed.searchPosts even fully unauthenticated — Bluesky locked that specific
+# endpoint down there to deter scraping. The plain "api.bsky.app" host (no
+# "public." prefix) still serves it with no auth required. That host also
+# rate-limits bursts with a bare 403 (no Retry-After header) — space calls
+# out or you'll get spurious 403s that have nothing to do with being blocked.
+# ---------------------------------------------------------------------------
+
+_BSKY_REQUEST_INTERVAL = 1.5  # seconds between calls — stays under the burst limit
+
+
+def _fetch_bsky_endpoint(query: str, since_iso: str, limit: int = 40) -> list[dict]:
+    url = (
+        "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts"
+        f"?q={urllib.parse.quote(query)}&sort=latest&limit={limit}"
+        f"&since={urllib.parse.quote(since_iso)}&lang=en"
+    )
+    req = urllib.request.Request(url, headers={"User-Agent": "lai-painminer/1.0"})
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=30, context=https_context()) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("posts", []) or []
+        except urllib.error.HTTPError as exc:
+            if exc.code == 403 and attempt == 0:
+                time.sleep(5)  # likely a burst-rate 403, not a hard block — back off once
+                continue
+            print(f"[warn] Bluesky fetch failed for query={query!r}: HTTP {exc.code}", file=sys.stderr)
+            return []
+        except (urllib.error.URLError, json.JSONDecodeError) as exc:
+            print(f"[warn] Bluesky fetch failed for query={query!r}: {exc}", file=sys.stderr)
+            return []
+    return []
+
+
+def fetch_bluesky_posts(hours_back: int = 168) -> list[PainPost]:
+    """Pull recent Bluesky posts matching doc-AI / OCR / IDP keywords.
+
+    Reuses _HN_QUERIES for keyword coverage. Returns skeleton PainPost objects
+    (no summary/opportunity/categories) — filled in by classify_with_grok()
+    alongside HN/SO, same pattern as the other native sources. Skips accounts
+    Bluesky itself labels "bot" — cross-posting bots that just mirror Reddit
+    threads or RSS feeds add noise without a real practitioner voice."""
+    since_iso = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours_back)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    seen: set[str] = set()
+    out: list[PainPost] = []
+    for i, q in enumerate(_HN_QUERIES):
+        if i > 0:
+            time.sleep(_BSKY_REQUEST_INTERVAL)
+        for post in _fetch_bsky_endpoint(q, since_iso):
+            author = post.get("author") or {}
+            labels = [l.get("val") for l in (author.get("labels") or [])]
+            if "bot" in labels:
+                continue
+            uri = post.get("uri") or ""
+            handle = author.get("handle") or ""
+            if not uri or not handle:
+                continue
+            rkey = uri.rsplit("/", 1)[-1]
+            permalink = f"https://bsky.app/profile/{handle}/post/{rkey}"
+            if permalink in seen:
+                continue
+            text = ((post.get("record") or {}).get("text") or "").strip()
+            if not text:
+                continue
+            seen.add(permalink)
+            out.append(PainPost(
+                platform="bluesky",
+                post_url=permalink,
+                post_title=text[:500],
+                author_handle=f"@{handle}",
+                posted_at=(post.get("record") or {}).get("createdAt"),
+                summary="",
+                opportunity="",
+                categories=[],
+            ))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Grok discovery for Reddit + X — narrowed scope, since HN/SO are now native.
 # ---------------------------------------------------------------------------
 
@@ -825,12 +908,15 @@ def _classify_prompt(candidates: list[PainPost]) -> str:
     return textwrap.dedent(f"""
         Today's date is {today}.
 
-        You are CLASSIFYING a list of Hacker News + Stack Overflow posts that we
-        already pulled via their public APIs (Algolia for HN, Stack Exchange for SO).
-        Each one is REAL, ON-TOPIC, and was matched on a doc-AI / OCR / IDP /
-        document-extraction keyword or tag. The pre-filter has already done the
-        relevance work — your job is to ENRICH each post and only drop the
-        obviously-bad ones.
+        You are CLASSIFYING a list of Hacker News + Stack Overflow + Bluesky posts
+        that we already pulled via their public APIs (Algolia for HN, Stack
+        Exchange for SO, the AT Protocol search endpoint for Bluesky). Each one
+        is REAL, ON-TOPIC, and was matched on a doc-AI / OCR / IDP / document-
+        extraction keyword. The pre-filter has already done the relevance work —
+        your job is to ENRICH each post and only drop the obviously-bad ones.
+        Bluesky posts are short, X-like microblog posts (not always phrased as a
+        question) — judge pain the same way you would an X post: is the author
+        stuck on / venting about a document-processing problem?
 
         DEFAULT POSTURE: KEEP posts where the author is describing a document-
         processing PAIN or asking a technical question about it. A junior
@@ -847,8 +933,19 @@ def _classify_prompt(candidates: list[PainPost]) -> str:
           of how relevant the tool sounds.
         - Vendor marketing or self-promotion ("I built X, check it out")
         - A blog post / tutorial / announcement (not a question or pain)
+        - A news/discussion thread about a THIRD PARTY's product release, model
+          launch, or version update (e.g. "Mistral OCR 4.1", "Company X launches
+          document AI tool") — even when the title mentions OCR/IDP capabilities
+          or invites comparisons to existing tools. Commenters MIGHT eventually
+          gripe about a tool in the thread, but the post itself is release news,
+          not a practitioner stuck on a problem. DROP unless the title/body is
+          itself someone describing a concrete pain (not merely "reactions to
+          a launch").
         - Completely off-topic (matched the keyword in passing — e.g. "OCR" was in
           a list of unrelated tools, not the subject of the post)
+        - An automated bot cross-post (e.g. a bot account that mirrors Reddit
+          threads, RSS feeds, or GitHub commits onto Bluesky/X verbatim) — no
+          real practitioner voice behind it, just a mirrored feed
         - Locked / deleted / not replyable
         - Not written primarily in English — drop non-English posts entirely
 
@@ -989,6 +1086,90 @@ def discover_competitor_mentions() -> PainPostsBatch:
 
 
 # ---------------------------------------------------------------------------
+# Cloud-vendor Q&A forum monitoring — fifth source. AWS re:Post, Microsoft
+# Q&A, and Google Cloud Community are where practitioners get stuck on the
+# cloud OCR/IDP services directly (Textract, Azure AI Document Intelligence,
+# Google Document AI) — high pain-signal, and each is a public, publicly
+# repliable Q&A thread, same shape as Stack Overflow. No native API for any
+# of the three (unlike SO's Stack Exchange API), so this rides Grok's
+# web_search the same way the Reddit/X pass does, just scoped by site:.
+# ---------------------------------------------------------------------------
+
+def vendor_forum_prompt() -> str:
+    today = dt.date.today().isoformat()
+    return textwrap.dedent(f"""
+        Today's date is {today}.
+
+        You are scouting **cloud-vendor Q&A/community forums** for practitioners
+        stuck on a document-processing problem with a cloud OCR/IDP service:
+        - AWS re:Post — site:repost.aws (Amazon Textract, Amazon Comprehend threads)
+        - Microsoft Q&A — site:learn.microsoft.com/en-us/answers (Azure AI Document
+          Intelligence / Form Recognizer threads)
+        - Google Cloud Community — site:googlecloudcommunity.com (Document AI threads)
+
+        Use web_search scoped to these three site: filters. DO NOT return Reddit,
+        HN, Stack Overflow, or X posts — those are covered by other passes.
+
+        QUALIFYING POST:
+        - A practitioner asking a concrete question about Textract / Azure
+          Document Intelligence (Form Recognizer) / Google Document AI —
+          accuracy problems, table/layout parsing failures, cost complaints,
+          API limitations, integration struggles.
+        - DO NOT hard-reject on a recency window. These forums are low-volume
+          and function as evergreen Q&A archives (unlike Reddit/HN's ephemeral
+          front page) — a thread from months ago is still a live, findable,
+          repliable page, and a strict recency filter will come back empty
+          even though the sites are full of exactly this content. Prefer
+          posts from the last 12 months when you have enough of them; only
+          reach further back if recent threads are too thin. Report your
+          best-effort posted_at for each post (or null if you can't tell) and
+          let a human judge staleness — do not reject a post just because you
+          can't confirm it's recent.
+        - Open, publicly repliable thread — not locked.
+
+        DISQUALIFY:
+        - Official vendor announcements or docs pages (not a practitioner asking
+          for help)
+        - Fully resolved threads with an accepted answer that already solves it
+          well (no reply value left)
+        - Posts unrelated to document/OCR/IDP processing (these forums cover
+          all of AWS/Azure/GCP, not just doc-AI — most hits will be irrelevant,
+          stay strict)
+        - Not written primarily in English
+
+        {_ADE_FOCUS_BLOCK}
+
+        TOPICS (categories must be EXACT strings):
+        {CATEGORY_DEFINITIONS}
+
+        OUTPUT — return ONLY valid JSON, no prose:
+        {{
+          "summary": "1-sentence summary of what you found this run",
+          "posts": [
+            {{
+              "platform": "vendor-forum",
+              "post_url": "https://...",
+              "post_title": "string",
+              "author_handle": "string or null",
+              "posted_at": "ISO-8601 best-estimate timestamp",
+              "summary": "2-3 sentences: what the practitioner is stuck on",
+              "opportunity": "1-2 sentences: how an ADE rep could helpfully reply. Frame the value around LandingAI ADE specifically — NEVER suggest discussing or recommending a competitor's product as the fix.",
+              "categories": ["exact strings from the list above"]
+            }}
+          ]
+        }}
+
+        Return up to 15 posts. If you find none, return an empty array — these
+        forums are lower-volume, a quiet run is expected and fine.
+    """).strip()
+
+
+def discover_vendor_forum_mentions() -> PainPostsBatch:
+    """Fifth source — Grok with web_search scoped to AWS re:Post / MS Q&A / GCP Community."""
+    return _parse_grok_batch(_grok_call(vendor_forum_prompt(), with_search=True))
+
+
+# ---------------------------------------------------------------------------
 # Filtering / normalization
 # ---------------------------------------------------------------------------
 
@@ -1062,6 +1243,13 @@ def clean_post(post: PainPost) -> PainPost | None:
         platform = "stackoverflow"
     elif platform in {"twitter", "x.com", "x"}:
         platform = "x"
+    elif platform in {"bsky", "bluesky"}:
+        platform = "bluesky"
+    elif "vendor" in platform or "repost" in platform or "re:post" in platform or platform in {
+        "aws", "aws-repost", "ms-qna", "microsoft q&a", "gcp-community",
+        "google cloud community", "cloud-forum",
+    }:
+        platform = "vendor-forum"
     elif platform not in ALLOWED_PLATFORMS:
         platform = "other"
 
@@ -1266,12 +1454,21 @@ def run_discover(dry_run: bool = False) -> int:
         so_raw = []
     print(f"  SO candidates: {len(so_raw)}")
 
-    # ---- Classify HN+SO with Grok (drops non-pain, fills summary/opportunity/categories) ----
+    # ---- Source 2b: Bluesky via AT Protocol public search (native, free, no key) ----
+    print("[pain_miner] Fetching Bluesky via public search...")
+    try:
+        bsky_raw = fetch_bluesky_posts()
+    except Exception as exc:
+        print(f"[warn] Bluesky fetch failed: {exc}", file=sys.stderr)
+        bsky_raw = []
+    print(f"  Bluesky candidates: {len(bsky_raw)}")
+
+    # ---- Classify HN+SO+Bluesky with Grok (drops non-pain, fills summary/opportunity/categories) ----
     _grok_alert_parts: list[str] = []  # collect per-source failures; one combined alert at end
     classified_native: list[PainPost] = []
-    native_pool = hn_raw + so_raw
+    native_pool = hn_raw + so_raw + bsky_raw
     if native_pool:
-        print(f"[pain_miner] Classifying {len(native_pool)} HN/SO candidates with Grok...")
+        print(f"[pain_miner] Classifying {len(native_pool)} HN/SO/Bluesky candidates with Grok...")
         try:
             classify_batch = classify_with_grok(native_pool)
             classified_native = list(classify_batch.posts)
@@ -1279,8 +1476,8 @@ def run_discover(dry_run: bool = False) -> int:
                   f"{classify_batch.summary or '(no summary)'}")
         except Exception as exc:
             # Non-fatal — Reddit/X still goes through. Collect for end-of-run summary.
-            print(f"[warn] Grok classify failed, dropping HN/SO this run: {exc}", file=sys.stderr)
-            _grok_alert_parts.append(f"classify (HN/SO): {type(exc).__name__}: {exc}")
+            print(f"[warn] Grok classify failed, dropping HN/SO/Bluesky this run: {exc}", file=sys.stderr)
+            _grok_alert_parts.append(f"classify (HN/SO/Bluesky): {type(exc).__name__}: {exc}")
 
     # ---- Source 3: Reddit + X via Grok (narrowed prompt) ----
     # Source-level Grok failures are non-fatal but DO alert — a silent xAI
@@ -1311,6 +1508,19 @@ def run_discover(dry_run: bool = False) -> int:
         _grok_alert_parts.append(f"competitor mentions: {type(exc).__name__}: {exc}")
         comp_posts = []
 
+    # ---- Source 5: Cloud-vendor Q&A forums (AWS re:Post, MS Q&A, GCP Community) ----
+    # Lower, sporadic volume expected — these are niche forums. A quiet run is fine.
+    print("[pain_miner] Querying Grok for cloud-vendor Q&A forum discovery...")
+    try:
+        vendor_batch = discover_vendor_forum_mentions()
+        vendor_posts = list(vendor_batch.posts)
+        print(f"  Grok returned {len(vendor_posts)} vendor-forum posts: "
+              f"{vendor_batch.summary or '(no summary)'}")
+    except Exception as exc:
+        print(f"[warn] Vendor-forum discovery failed: {exc}", file=sys.stderr)
+        _grok_alert_parts.append(f"vendor-forum discovery: {type(exc).__name__}: {exc}")
+        vendor_posts = []
+
     # One combined alert per run if any Grok source failed — never one per failure.
     if _grok_alert_parts:
         send_error_alert(
@@ -1326,13 +1536,13 @@ def run_discover(dry_run: bool = False) -> int:
             pass
 
     # ---- Combine sources ----
-    combined = classified_native + grok_posts + comp_posts
+    combined = classified_native + grok_posts + comp_posts + vendor_posts
     if not combined:
         print("[pain_miner] No candidates from any source. Exiting.")
         return 0
     print(f"[pain_miner] Combined pool: {len(combined)} posts "
-          f"({len(classified_native)} HN/SO + {len(grok_posts)} Reddit/X "
-          f"+ {len(comp_posts)} competitor mentions)")
+          f"({len(classified_native)} HN/SO/Bluesky + {len(grok_posts)} Reddit/X "
+          f"+ {len(comp_posts)} competitor mentions + {len(vendor_posts)} vendor-forum)")
 
     # ---- Validate + URL-clean + drop posts missing required fields ----
     cleaned: list[PainPost] = []
@@ -1435,7 +1645,8 @@ def _html_escape(s: str | None) -> str:
 
 _PLATFORM_LABEL = {
     "reddit": "Reddit", "hackernews": "Hacker News",
-    "stackoverflow": "Stack Overflow", "x": "X", "other": "Other",
+    "stackoverflow": "Stack Overflow", "x": "X", "bluesky": "Bluesky",
+    "vendor-forum": "Vendor Forum (AWS/MS/GCP)", "other": "Other",
 }
 
 
@@ -1736,7 +1947,9 @@ def run_health_check() -> int:
         findings.append(f"NEEDS_ATTENTION: runaway days (>100 posts): {runaway}")
         downgrade("NEEDS_ATTENTION")
 
-    # Check (b) — silent platforms
+    # Check (b) — silent platforms. Bluesky and vendor-forum are deliberately
+    # excluded here — both are lower/sporadic-volume sources where a quiet
+    # week is expected and normal, not a sign of a broken pipeline.
     expected_platforms = ["reddit", "hackernews", "stackoverflow", "x"]
     silent_platforms = [p for p in expected_platforms if by_platform.get(p, 0) == 0]
     if silent_platforms:

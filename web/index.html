@@ -122,6 +122,8 @@
     .platform-badge.hackernews { background: rgba(255, 123, 52, 0.12); color: var(--hn); }
     .platform-badge.stackoverflow { background: rgba(244, 128, 36, 0.12); color: var(--so); }
     .platform-badge.x { background: rgba(29, 161, 242, 0.12); color: var(--x); }
+    .platform-badge.bluesky { background: rgba(0, 133, 255, 0.12); color: var(--bluesky); }
+    .platform-badge.vendor-forum { background: rgba(147, 51, 234, 0.12); color: var(--vendor-forum); }
     .platform-badge.other { background: rgba(140, 140, 140, 0.12); color: var(--other); }
     .post-date { color: var(--muted); font-size: 11px; }
     .card h3 {
@@ -474,6 +476,8 @@
         <span class="chip platform active" data-platform="hackernews">hn</span>
         <span class="chip platform active" data-platform="stackoverflow">so</span>
         <span class="chip platform active" data-platform="x">x</span>
+        <span class="chip platform active" data-platform="bluesky">bsky</span>
+        <span class="chip platform active" data-platform="vendor-forum">vendor</span>
         <span class="chip platform active" data-platform="other">other</span>
       </div>
       <div class="category-section">
@@ -594,7 +598,7 @@
 
       const state = {
         posts: [],
-        filterPlatforms: new Set(['reddit', 'hackernews', 'stackoverflow', 'x', 'other']),
+        filterPlatforms: new Set(['reddit', 'hackernews', 'stackoverflow', 'x', 'bluesky', 'vendor-forum', 'other']),
         filterCategories: new Set(),
         filterCompetitors: false,
       };
@@ -649,7 +653,7 @@
         state.filterCompetitors = false;
         document.querySelectorAll(".chip.active").forEach(c => c.classList.remove("active"));
         // Re-select all platform chips (restore default all-selected state)
-        ['reddit','hackernews','stackoverflow','x','other'].forEach(p => {
+        ['reddit','hackernews','stackoverflow','x','bluesky','vendor-forum','other'].forEach(p => {
           state.filterPlatforms.add(p);
           const el = document.querySelector(`.chip.platform[data-platform="${p}"]`);
           if (el) el.classList.add("active");
@@ -923,7 +927,10 @@
           .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
       }
       function platformLabel(p) {
-        return ({ reddit: "reddit", hackernews: "hn", stackoverflow: "so", x: "x", other: "other" })[p] || p;
+        return ({
+          reddit: "reddit", hackernews: "hn", stackoverflow: "so", x: "x",
+          bluesky: "bsky", "vendor-forum": "vendor", other: "other",
+        })[p] || p;
       }
       function fmtDate(s) {
         if (!s) return "—";
