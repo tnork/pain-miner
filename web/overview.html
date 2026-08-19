@@ -645,52 +645,52 @@
         <div class="glance-steps">
           <div class="glance-step">
             <span class="step-num">01</span>
-            <div class="step-body"><strong>HN Intake</strong><span>Algolia API · 20 keyword queries · no auth</span></div>
+            <div class="step-body"><strong>HN Intake</strong><span>Searches Hacker News for 20 pain-related keywords via the free Algolia API.</span></div>
             <span class="step-badge">native</span>
           </div>
           <div class="glance-step">
             <span class="step-num">02</span>
-            <div class="step-body"><strong>SO Intake</strong><span>Stack Exchange API · 41 queries/cycle · tag + intitle</span></div>
+            <div class="step-body"><strong>SO Intake</strong><span>Queries Stack Overflow's API with 41 tag and title searches per cycle.</span></div>
             <span class="step-badge">native</span>
           </div>
           <div class="glance-step">
             <span class="step-num">03</span>
-            <div class="step-body"><strong>Bluesky Intake</strong><span>AT Protocol public search (api.bsky.app) · reuses HN queries · no auth</span></div>
+            <div class="step-body"><strong>Bluesky Intake</strong><span>Reuses the HN keyword set against Bluesky's public post search.</span></div>
             <span class="step-badge">native</span>
           </div>
           <div class="glance-step">
             <span class="step-num">04</span>
-            <div class="step-body"><strong>Reddit + X</strong><span>Grok web_search + x_search · pain posts · ADE doc focus</span></div>
+            <div class="step-body"><strong>Reddit + X</strong><span>Grok searches Reddit and X directly for practitioners describing document pain.</span></div>
             <span class="step-badge">discovery</span>
           </div>
           <div class="glance-step">
             <span class="step-num">05</span>
-            <div class="step-body"><strong>Competitor Monitor</strong><span>Reducto, Unstructured, UiPath, LlamaIndex mentions · 14-day window</span></div>
+            <div class="step-body"><strong>Competitor Monitor</strong><span>Tracks mentions of Reducto, Unstructured, UiPath, and LlamaIndex from the last 14 days.</span></div>
             <span class="step-badge">monitor</span>
           </div>
           <div class="glance-step">
             <span class="step-num">06</span>
-            <div class="step-body"><strong>Vendor-Forum Monitor</strong><span>AWS re:Post, Microsoft Q&amp;A, Google Cloud Community · 14-day staleness cutoff</span></div>
+            <div class="step-body"><strong>Vendor-Forum Monitor</strong><span>Watches AWS re:Post, Microsoft Q&amp;A, and Google Cloud Community for stuck practitioners.</span></div>
             <span class="step-badge">monitor</span>
           </div>
           <div class="glance-step">
             <span class="step-num">07</span>
-            <div class="step-body"><strong>ADE Mentions</strong><span>LandingAI/ADE own-brand + comparison questions · 14-day window</span></div>
+            <div class="step-body"><strong>ADE Mentions</strong><span>Flags posts naming LandingAI or ADE directly, including head-to-head comparisons.</span></div>
             <span class="step-badge">monitor</span>
           </div>
           <div class="glance-step">
             <span class="step-num">08</span>
-            <div class="step-body"><strong>LLM Classifier</strong><span>Grok summarize + categorize (HN/SO/Bluesky) · opportunity + reply angle</span></div>
+            <div class="step-body"><strong>LLM Classifier</strong><span>Grok summarizes each HN, SO, and Bluesky candidate and suggests a reply angle.</span></div>
             <span class="step-badge">classify</span>
           </div>
           <div class="glance-step">
             <span class="step-num">09</span>
-            <div class="step-body"><strong>Pain Queue</strong><span>Supabase pain_posts · dedup on post_url · competitor merge</span></div>
+            <div class="step-body"><strong>Pain Queue</strong><span>Everything lands in Supabase, deduped by URL and merged with competitor mentions.</span></div>
             <span class="step-badge">queue</span>
           </div>
           <div class="glance-step">
             <span class="step-num">10</span>
-            <div class="step-body"><strong>Triage UI</strong><span>painminer.muisbien.com · Reply / Archive / Delete</span></div>
+            <div class="step-body"><strong>Triage UI</strong><span>A human reviews the queue and replies, archives, or deletes each post.</span></div>
             <span class="step-badge">triage</span>
           </div>
         </div>
