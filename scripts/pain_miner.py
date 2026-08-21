@@ -1394,6 +1394,12 @@ def clean_post(post: PainPost) -> PainPost | None:
     posted_at = _normalize_posted_at(post.posted_at)
     if platform == "vendor-forum" and posted_at is not None:
         posted_dt = dt.datetime.fromisoformat(posted_at.replace("Z", "+00:00"))
+        if posted_dt.tzinfo is None:
+            # fromisoformat() accepts offset-less strings (e.g. Grok returning
+            # "2026-08-19T10:00:00" with no "Z"/offset) as valid ISO-8601, but
+            # they come out naive — comparing naive to the aware "now" below
+            # raises TypeError. Assume UTC, matching how we treat "Z".
+            posted_dt = posted_dt.replace(tzinfo=dt.timezone.utc)
         if posted_dt < dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=_VENDOR_FORUM_MAX_AGE_DAYS):
             return None
 
