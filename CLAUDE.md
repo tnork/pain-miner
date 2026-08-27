@@ -204,7 +204,7 @@ Install with `crontab /opt/pain-miner/deploy/crontab.example` (or `crontab -e` t
 |---|---|---|
 | `discover` | 3×/day Mon–Sat (13:02, 17:00, 22:00 UTC = 9:02 AM / 1 PM / 6 PM ET in EDT) | Grok web+X search → dedup → insert to Supabase |
 | `archive` | Daily 03:00 UTC | Flip `status='new'` posts >4 days old to `'archived'` |
-| `daily-summary` | Daily 03:30 UTC | Email last-24h digest to the landing.ai team (`_SUMMARY_TO`) |
+| `daily-summary` | Daily 03:30 UTC | Email last-24h digest to the landing.ai team (`_SUMMARY_TO`) — skipped entirely (no email sent) if 0 posts were found in the window |
 | `error-digest` | Every 15 min | Bundle frontend errors by fingerprint → email per fingerprint |
 
 Note: the UTC values are calibrated for EDT (UTC-4). In EST (UTC-5, Nov-Mar) the actual ET run times shift one hour earlier — harmless, just cosmetic.
@@ -339,14 +339,12 @@ Every external API call uses exponential-backoff retry. Standard helpers are in 
 
 ## Error alerting
 
-Brevo alert to `tylerdnorkus@gmail.com` on any unhandled exception. Per-source Grok failures are non-fatal.
+Brevo alert to `tylerdnorkus@gmail.com` on any unhandled exception. Per-source failures within `discover` are non-fatal — the run keeps going and other sources still populate the queue.
 
 | Mode | Alert subject | When |
 |---|---|---|
 | `discover` | `Pain Miner BROKEN — {date}` | Unhandled exception |
-| `discover` | `Pain Miner — Grok classify failed {date}` | HN/SO classifier fails (native pool dropped this cycle) |
-| `discover` | `Pain Miner — Grok Reddit/X discovery failed {date}` | Reddit/X pass fails (other sources continue) |
-| `discover` | `Pain Miner — Competitor mention discovery failed {date}` | Competitor pass fails (pain queue still populated) |
+| `discover` | `Pain Miner — N source(s) failed {date}` | One combined alert per run (not one per source) if any of: HN fetch, SO fetch, Bluesky fetch, HN/SO/Bluesky classify, Reddit/X discovery, competitor mentions, vendor-forum discovery, ADE mentions fails. Body lists each failure. Fixed 2026-08-27 — HN/SO/Bluesky fetch failures used to only print a stderr warning with no alert at all, since `health-check` (the only mode that would eventually notice a silent source outage) isn't in the crontab. |
 | `archive` | `Pain Miner BROKEN — {date}` | Unhandled exception during archive sweep |
 | `daily-summary` | `Pain Miner BROKEN — {date}` | Aggregation or Brevo send failure |
 | `error-digest` | `Pain Miner BROKEN — {date}` | Lock, Supabase query, or batched update failure |
@@ -376,6 +374,13 @@ Product code in observability: `PM`.
 - **PostgREST NULL-status pattern** — never use `.not_.in_(col, [...])` when rows can have NULL in that column. SQL `NULL NOT IN (...)` evaluates to NULL, silently dropping rows. Use `.or_("status.not.in.(x,y),status.is.null")` instead.
 - **Bluesky's "public" API host isn't actually public for search** — `public.api.bsky.app/xrpc/app.bsky.feed.searchPosts` 403s unconditionally, even fully unauthenticated (Bluesky locked that endpoint down there to deter scraping). The unauthenticated host that actually serves it is `api.bsky.app` (no "public." prefix) — confirmed by hand 2026-08-17. That host also rate-limits bursts with a bare 403 and no `Retry-After` header, which looks identical to a hard block unless you space requests out (see `_BSKY_REQUEST_INTERVAL`).
 - **Grok's `web_search` can't reliably date-filter niche/low-volume domains** — a `site:repost.aws` / `site:learn.microsoft.com/answers` / `site:googlecloudcommunity.com` search with a "last N days" instruction reliably returns zero results even though the content exists and is indexed (confirmed by hand: the same query with no date constraint immediately surfaced specific, on-topic threads). High-traffic domains (Reddit, HN, X) don't show this problem — likely a freshness-metadata gap specific to these smaller forums. Fix: don't hard-filter on recency for low-volume sources: ask for a soft preference instead and let `posted_at` (best-effort, often `null`) carry the staleness signal into triage.
+- **`health-check` mode is not in the crontab** — it's on-demand only (`--mode health-check`). It's the only mode that notices a silently-broken native source (see the "N source(s) failed" alerting fix above, 2026-08-27) via its own 7-day trend check, but nothing runs it automatically. If you want that safety net on a schedule, add it to `deploy/crontab.example` (weekly is plenty — it's a trend check, not a per-run check). Also: `health-check`'s "could not read /var/log/pain-miner.log" finding is expected/harmless when run from a laptop instead of the droplet — that log only exists where cron actually redirects stdout/stderr (`/opt/lai-research` in current-reality deploys, see "Deploy — current reality" above).
+- **A zero-post `discover` day is not automatically a bug** — confirmed by hand 2026-08-27: on a day `health-check` flagged as a zero-volume/silent-source anomaly, all 3 `discover` cron runs had `pipeline_runs.status='success'` with zero `pipeline_errors`, HN/Stack Exchange APIs and quota were independently confirmed healthy, and running a real sample of that day's HN candidates through `classify_with_grok()` correctly kept 0 (all off-topic: Show HN launches, CPU trivia, a Debian poll, etc.) — a genuine quiet day for this niche topic, not a broken pipeline. Before assuming a silent-source alert means something is broken, check (in order): `pipeline_runs`/`pipeline_errors` for that day, whether the source's raw API still returns results directly (`fetch_hn_posts()` / `fetch_so_posts()` / `fetch_bluesky_posts()` in a REPL), and only then suspect the classifier itself.
+
+### Known issues (found by `codex review`, 2026-08-27 — not yet fixed)
+
+- **`pipeline_runs.status` is always `"success"` for `discover`/`error-digest` even when a source or the digest send partially failed.** `main()` discards every mode's return value and calls `end_run(run_id, status="success")` unconditionally on the happy path (`scripts/pain_miner.py` `main()`) — a per-source Grok/native failure (which now alerts via Brevo, see above) or an `error-digest` Brevo-send failure still shows as a successful run in `pipeline_runs`. The Brevo alert is the real safety net today; this is an observability-dashboard accuracy gap, not a silent total failure. Fixing it properly means threading real per-source counts out of `run_discover()`/`run_error_digest()` into `main()`'s `end_run()` call instead of the current bare `int` return — a moderate refactor, deliberately deferred rather than rushed.
+- **ADE promotion only works within a single `discover` run.** If a later run's ADE-mention scan (`discover_ade_mentions()`) finds a URL already stored under another platform from a *previous* run, the upsert-on-conflict path only merges `competitors`, not `platform` — the post never gets promoted to `platform="ade"` and stays out of that filter chip. Needs a deliberate decision on upsert semantics (should a later ADE match ever override an earlier platform value?) before fixing, so deferred.
 
 ---
 

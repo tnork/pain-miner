@@ -245,7 +245,12 @@ $$;
 
 GRANT EXECUTE ON FUNCTION get_active_pain_posts(text) TO anon;
 
--- Archive view: status IN ('archived','completed','replied'), optional time cutoff on actioned_at.
+-- Archive view: status IN ('archived','completed','replied'), optional time cutoff on status_changed_at.
+-- NOTE: cutoff is on status_changed_at, not actioned_at. actioned_at/actioned_by are only set by
+-- set_pain_post_status() (human triage action) — the automated sweeps (archive_old(),
+-- archive_stale_vendor_forum() in pain_miner.py) only set status_changed_at. Filtering on
+-- actioned_at silently excluded every auto-archived row from any time-filtered view (they'd only
+-- show up when p_cutoff is NULL / "all time"). Fixed 2026-08-27.
 CREATE OR REPLACE FUNCTION get_archive_pain_posts(
   p_secret text,
   p_cutoff timestamptz DEFAULT NULL
@@ -264,8 +269,8 @@ BEGIN
   RETURN QUERY
     SELECT * FROM pain_posts
     WHERE status IN ('archived', 'completed', 'replied')
-      AND (p_cutoff IS NULL OR actioned_at >= p_cutoff)
-    ORDER BY actioned_at DESC NULLS LAST
+      AND (p_cutoff IS NULL OR status_changed_at >= p_cutoff)
+    ORDER BY status_changed_at DESC NULLS LAST
     LIMIT 500;
 END;
 $$;

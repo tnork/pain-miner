@@ -1570,12 +1570,18 @@ def run_discover(dry_run: bool = False) -> int:
     # Reset transient classifier-context dict from any prior in-process call.
     _CLASSIFIER_BODIES.clear()
 
+    # Collects per-source failures (Grok AND native fetchers below) for one
+    # combined end-of-run alert — a silent native-API outage should be just as
+    # visible as a silent Grok outage, not just a stderr line nobody reads.
+    _grok_alert_parts: list[str] = []
+
     # ---- Source 1: HN via Algolia (native, free, no key) ----
     print("[pain_miner] Fetching HN via Algolia...")
     try:
         hn_raw = fetch_hn_posts()
     except Exception as exc:
         print(f"[warn] HN fetch failed: {exc}", file=sys.stderr)
+        _grok_alert_parts.append(f"HN fetch: {type(exc).__name__}: {exc}")
         hn_raw = []
     print(f"  HN candidates: {len(hn_raw)}")
 
@@ -1585,6 +1591,7 @@ def run_discover(dry_run: bool = False) -> int:
         so_raw = fetch_so_posts()
     except Exception as exc:
         print(f"[warn] SO fetch failed: {exc}", file=sys.stderr)
+        _grok_alert_parts.append(f"SO fetch: {type(exc).__name__}: {exc}")
         so_raw = []
     print(f"  SO candidates: {len(so_raw)}")
 
@@ -1594,11 +1601,11 @@ def run_discover(dry_run: bool = False) -> int:
         bsky_raw = fetch_bluesky_posts()
     except Exception as exc:
         print(f"[warn] Bluesky fetch failed: {exc}", file=sys.stderr)
+        _grok_alert_parts.append(f"Bluesky fetch: {type(exc).__name__}: {exc}")
         bsky_raw = []
     print(f"  Bluesky candidates: {len(bsky_raw)}")
 
     # ---- Classify HN+SO+Bluesky with Grok (drops non-pain, fills summary/opportunity/categories) ----
-    _grok_alert_parts: list[str] = []  # collect per-source failures; one combined alert at end
     classified_native: list[PainPost] = []
     native_pool = hn_raw + so_raw + bsky_raw
     if native_pool:
@@ -1678,16 +1685,16 @@ def run_discover(dry_run: bool = False) -> int:
         _grok_alert_parts.append(f"ADE mentions: {type(exc).__name__}: {exc}")
         ade_posts = []
 
-    # One combined alert per run if any Grok source failed — never one per failure.
+    # One combined alert per run if any source failed (native fetch or Grok) — never one per failure.
     if _grok_alert_parts:
         send_error_alert(
-            subject=f"Pain Miner — Grok failed ({len(_grok_alert_parts)} source(s)) {dt.date.today().isoformat()}",
+            subject=f"Pain Miner — {len(_grok_alert_parts)} source(s) failed {dt.date.today().isoformat()}",
             detail="\n\n".join(_grok_alert_parts),
         )
         try:
             from _pipeline_log import log_error as _log_error  # type: ignore
             _log_error("PM", "pain_miner.py", "discover",
-                       f"Grok failed for {len(_grok_alert_parts)} source(s): {'; '.join(p.split(':')[0] for p in _grok_alert_parts)}",
+                       f"{len(_grok_alert_parts)} source(s) failed: {'; '.join(p.split(':')[0] for p in _grok_alert_parts)}",
                        send_email=False)
         except Exception:
             pass
@@ -1941,6 +1948,9 @@ def run_daily_summary(window_hours: int = 24) -> int:
     sb = supabase_client()
     posts = _fetch_posts_window(sb, hours=window_hours)
     today = dt.date.today().isoformat()
+    if not posts:
+        print("[pain_miner] 0 posts in window — skipping daily summary email.")
+        return 0
     window_label = f"last {window_hours}h · {today}"
     html, text = _build_daily_summary_html(posts, window_label)
     if not os.getenv("BREVO_API_KEY"):
@@ -2276,10 +2286,9 @@ def main() -> int:
     except Exception as exc:
         detail = f"{type(exc).__name__}: {exc}"
         print(f"[pain_miner] ERROR: {detail}", file=sys.stderr)
-        send_error_alert(
-            subject=f"Pain Miner BROKEN — {dt.date.today().isoformat()}",
-            detail=detail,
-        )
+        # fail_run() already alerts via Brevo (with traceback + run/error IDs,
+        # strictly more useful than a bare send_error_alert() here) — a second
+        # call would just double-email Tyler for the same exception.
         fail_run(run_id, "PM", "pain_miner.py", args.mode, exc)
         return 1
     return 0
