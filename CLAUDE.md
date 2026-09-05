@@ -1,5 +1,18 @@
 # Pain Miner — Standalone Application
 
+**Status: DEACTIVATED as of 2026-09-05.** All 6 cron entries on the droplet
+(`discover` ×3, `archive`, `daily-summary`, `error-digest`) are commented out
+— see the `PAIN MINER — DEACTIVATED` block in `crontab -l` on
+`104.248.54.204`. `painminer.muisbien.com` returns 503 (nginx
+`sites-enabled/painminer` was repointed at a small maintenance block,
+`sites-available/painminer-down`, instead of the real site config —
+`sites-available/painminer`, the real config, is untouched on disk). No code
+was changed; the Supabase project/data are untouched. Being repurposed away
+from LandingAI-search toward a different focus — reactivate by symlinking
+`sites-available/painminer` back into `sites-enabled/painminer` and
+uncommenting the crontab block (both have the exact commands in a comment
+at the top of each).
+
 Engagement-triage queue. Surfaces practitioner pain posts on Reddit / Hacker News / StackOverflow / X / Bluesky / cloud-vendor Q&A forums (AWS re:Post, Microsoft Q&A, Google Cloud Community) where someone is discussing real OCR / NLP / IDP / document-processing pain, so a human can publicly reply with a helpful suggestion. **Not lead-gen** — no CRM enrollment, no contact resolution.
 
 Extracted from the `lai-central-research-agent` monorepo on 2026-05-29 and split into this standalone repo for independent deployment and database migration. That monorepo was renamed `tnork/muisbien` on GitHub on 2026-08-18 (old `lai-central-research-agent` URLs redirect) — see **Deploy — current reality** below for why this matters.
